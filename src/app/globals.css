@@ -70,10 +70,24 @@
 }
 
 @layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  html, body {
+    overscroll-behavior-y: none;
+    user-select: none;
+  }
+
   body { 
     font-family: 'Plus Jakarta Sans', sans-serif; 
     min-height: max(884px, 100dvh);
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Allow text selection in inputs and textareas */
+  input, textarea {
+    user-select: auto;
   }
 }
 
