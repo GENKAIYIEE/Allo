@@ -70,7 +70,7 @@ export default function RegisterPage() {
         <div className="flex flex-col items-center text-center gap-4 animate-fade-in-up">
           <div className="bg-primary p-3 rounded-2xl shadow-sm mb-1 transition-transform duration-500 hover:scale-105 hover:shadow-md cursor-default">
             <Image 
-              src="/allo_logo_transparent.png"
+              src="/payflow_logo_final.png"
               alt="Allo Logo"
               width={36}
               height={36}
