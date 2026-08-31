@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Skeleton } from "../../../components/Skeleton";
 import { formatInTimeZone } from "date-fns-tz";
+import { FINANCIAL_TIPS } from "../../../lib/constants/tips";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -29,6 +30,11 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [dailyTip, setDailyTip] = useState("");
+
+  useEffect(() => {
+    setDailyTip(FINANCIAL_TIPS[Math.floor(Math.random() * FINANCIAL_TIPS.length)]);
+  }, []);
 
   useEffect(() => {
     const savedAllocations = localStorage.getItem("custom_allocations_v1");
@@ -239,6 +245,8 @@ export default function DashboardPage() {
           </div>
         )}
 
+
+
         {/* Current Payday Net Income Card */}
         <section className="bg-white p-5 rounded-2xl shadow-sm mb-6 flex flex-col items-center animate-fade-in-up-delay-2 group hover:shadow-md transition-shadow duration-300">
           <h2 className="text-slate-700 font-semibold mb-3">Current Payday Net Income</h2>
@@ -262,29 +270,7 @@ export default function DashboardPage() {
           <p className="text-xs text-slate-400 mt-3">Enter your net pay for this cut-off</p>
         </section>
 
-        {/* System Quests */}
-        {numIncome > 0 && (
-          <section className={`p-4 rounded-xl shadow-sm mb-6 border ${isOverBudget ? 'bg-orange-900 text-orange-100 border-orange-500' : 'bg-blue-900 text-blue-100 border-blue-500'} font-mono relative overflow-hidden transition-all duration-500 animate-fade-in-up-delay-2`}>
-            {/* Scanline overlay for quests */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-0 pointer-events-none opacity-30"></div>
-            
-            <div className="relative z-10 flex items-start gap-3">
-              <span className="material-symbols-outlined text-3xl mt-1">
-                {isOverBudget ? 'warning' : 'task_alt'}
-              </span>
-              <div>
-                <h3 className="font-bold uppercase tracking-widest text-sm opacity-80">
-                  {isOverBudget ? '[SYSTEM] EMERGENCY QUEST' : '[SYSTEM] DAILY QUEST'}
-                </h3>
-                <p className="text-sm mt-1">
-                  {isOverBudget 
-                    ? "You exceeded the budget! Cut back tomorrow and save. No luxury spending!" 
-                    : "Do not spend more than ₱500 today. Stick to the budget!"}
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
+
 
         {/* Budget Allocation Label */}
         <h3 className="text-slate-700 font-bold mb-3 px-1">Budget Allocation</h3>
@@ -345,53 +331,77 @@ export default function DashboardPage() {
         </div>
 
         {/* Goal / Savings Card */}
-        <section className={`rounded-2xl p-5 shadow-sm border mb-6 flex justify-between items-center transition-colors animate-fade-in-up-delay-2 ${
+        <section className={`rounded-2xl shadow-sm border mb-6 flex flex-col overflow-hidden transition-colors animate-fade-in-up-delay-2 ${
           isOverBudget ? 'bg-red-50 border-red-200' : 'bg-[#EAF6ED] border-green-200'
         }`}>
-          <div>
-            <h2 className="text-slate-700 font-bold text-sm">Goal / Savings</h2>
-            <p className="text-xs text-slate-500 mb-2">Neto-computed result</p>
-            <div className={`text-3xl font-bold tracking-tight flex items-center h-10 ${isOverBudget ? 'text-red-600' : 'text-[#1B8753]'}`}>
-              {isPageLoading ? (
-                <Skeleton className="w-32 h-8 bg-green-900/10" />
-              ) : (
-                <>
-                  <span className="text-2xl mr-1">₱</span>
-                  {iponGoal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                </>
-              )}
+          <div className="p-5 flex justify-between items-center">
+            <div>
+              <h2 className="text-slate-700 font-bold text-sm">Goal / Savings</h2>
+              <p className="text-xs text-slate-500 mb-2">Neto-computed result</p>
+              <div className={`text-3xl font-bold tracking-tight flex items-center h-10 ${isOverBudget ? 'text-red-600' : 'text-[#1B8753]'}`}>
+                {isPageLoading ? (
+                  <Skeleton className="w-32 h-8 bg-green-900/10" />
+                ) : (
+                  <>
+                    <span className="text-2xl mr-1">₱</span>
+                    {iponGoal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                  </>
+                )}
+              </div>
+              <div className="flex items-center gap-1 mt-2">
+                <span className={`material-symbols-outlined text-[14px] ${isOverBudget ? 'text-red-500' : 'text-[#1B8753]'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
+                  {isOverBudget ? 'warning' : 'savings'}
+                </span>
+                <span className="text-[10px] text-slate-600 font-medium">
+                  {isOverBudget ? 'Over budget!' : 'Net Saved this Payday'}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1 mt-2">
-              <span className={`material-symbols-outlined text-[14px] ${isOverBudget ? 'text-red-500' : 'text-[#1B8753]'}`} style={{ fontVariationSettings: "'FILL' 1" }}>
-                {isOverBudget ? 'warning' : 'savings'}
-              </span>
-              <span className="text-[10px] text-slate-600 font-medium">
-                {isOverBudget ? 'Over budget!' : 'Net Saved this Payday'}
-              </span>
+            
+            {/* Circular Progress Placeholder Icon */}
+            <div className="relative w-16 h-16 mr-2">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-green-200/50"
+                  strokeWidth="4"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className={isOverBudget ? "text-red-500" : "text-[#28A745]"}
+                  strokeDasharray={`${numIncome > 0 && !isOverBudget ? Math.max((iponGoal / numIncome) * 100, 0) : 0}, 100`}
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
             </div>
           </div>
-          
-          {/* Circular Progress Placeholder Icon */}
-          <div className="relative w-16 h-16 mr-2">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-green-200/50"
-                strokeWidth="4"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className={isOverBudget ? "text-red-500" : "text-[#28A745]"}
-                strokeDasharray={`${numIncome > 0 && !isOverBudget ? Math.max((iponGoal / numIncome) * 100, 0) : 0}, 100`}
-                strokeWidth="4"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-          </div>
+
+          {/* Financial Tip inside Goal Card */}
+          {dailyTip && !isOverBudget && (
+            <div className="px-5 py-3 bg-white/40 border-t border-green-200/50 flex items-start gap-2">
+              <span className="material-symbols-outlined text-[#1B8753] text-[16px] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>
+                lightbulb
+              </span>
+              <p className="text-xs text-[#1B8753] font-medium leading-relaxed italic">
+                {dailyTip}
+              </p>
+            </div>
+          )}
+          {isOverBudget && (
+            <div className="px-5 py-3 bg-white/40 border-t border-red-200/50 flex items-start gap-2">
+              <span className="material-symbols-outlined text-red-600 text-[16px] mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>
+                warning
+              </span>
+              <p className="text-xs text-red-600 font-medium leading-relaxed">
+                You exceeded your budget. Please adjust your allocations to save money.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Messages */}

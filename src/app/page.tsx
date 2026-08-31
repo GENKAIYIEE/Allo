@@ -19,7 +19,7 @@ export default function SplashPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       const elapsed = Date.now() - startTime;
-      const minDisplayTime = 1800; // 1800ms minimum splash to let sequence finish
+      const minDisplayTime = 2700; // 2700ms minimum splash to let the user read the tagline
       const delay = Math.max(0, minDisplayTime - elapsed);
       
       setTimeout(() => {
