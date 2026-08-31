@@ -2,9 +2,20 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Allo - Dashboard",
+  title: "Pay-Flow",
   description: "Personal finance and salary allocation tracker.",
   manifest: "/manifest.json",
+  appleWebApp: {
+    title: "Pay-Flow",
+    statusBarStyle: "black-translucent",
+    startupImage: [
+      "/allo_logo_v4.png",
+    ],
+  },
+  icons: {
+    icon: "/allo_logo_v4.png",
+    apple: "/allo_logo_v4.png",
+  }
 };
 
 export const viewport: Viewport = {
