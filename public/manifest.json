@@ -1,6 +1,6 @@
 {
-  "name": "Pay-Flow",
-  "short_name": "Pay-Flow",
+  "name": "Allo",
+  "short_name": "Allo",
   "description": "Salary allocation and personal finance tracker.",
   "start_url": "/",
   "display": "standalone",

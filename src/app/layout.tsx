@@ -2,11 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pay-Flow",
+  title: "Allo",
   description: "Personal finance and salary allocation tracker.",
   manifest: "/manifest.json",
   appleWebApp: {
-    title: "Pay-Flow",
+    title: "Allo",
     statusBarStyle: "black-translucent",
     startupImage: [
       "/icon-512x512.png",
