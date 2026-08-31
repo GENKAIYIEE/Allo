@@ -3,9 +3,13 @@
   "short_name": "Allo",
   "description": "Salary allocation and personal finance tracker.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "icons": [
     {
       "src": "/icon-192x192.png",
