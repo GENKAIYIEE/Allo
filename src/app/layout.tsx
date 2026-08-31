@@ -9,12 +9,12 @@ export const metadata: Metadata = {
     title: "Pay-Flow",
     statusBarStyle: "black-translucent",
     startupImage: [
-      "/allo_logo_v4.png",
+      "/icon-512x512.png",
     ],
   },
   icons: {
-    icon: "/allo_logo_v4.png",
-    apple: "/allo_logo_v4.png",
+    icon: "/icon-192x192.png",
+    apple: "/icon-192x192.png",
   }
 };
 
