@@ -55,6 +55,7 @@ export default function SplashPage() {
           priority
         />
         <h1 className="animate-splash-text text-3xl font-bold text-white uppercase tracking-[0.2em]">Allo</h1>
+        <p className="animate-splash-text text-slate-300 mt-2 text-sm tracking-wide text-center max-w-xs">Where every peso finds its purpose.</p>
         
         <div className="animate-splash-dots-container flex gap-2 mt-8 absolute bottom-32">
           <div className="animate-splash-dot w-2 h-2 rounded-full bg-blue-400" style={{ animationDelay: "0ms" }}></div>
