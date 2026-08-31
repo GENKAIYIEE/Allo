@@ -27,6 +27,7 @@ export default function SettingsPage() {
 
   const [allocations, setAllocations] = useState<Allocation[]>(defaultAllocations);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatPct, setNewCatPct] = useState<string>("");
@@ -68,9 +69,15 @@ export default function SettingsPage() {
       alert("Your total allocations exceed 100%. Please reduce a category or use Auto-Balance.");
       return;
     }
-    localStorage.setItem("custom_allocations_v1", JSON.stringify(allocations));
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    
+    setIsSaving(true);
+    // Simulate network delay for animation effect
+    setTimeout(() => {
+      localStorage.setItem("custom_allocations_v1", JSON.stringify(allocations));
+      setIsSaving(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    }, 600);
   };
 
   const handleAutoBalance = (currentAllocs: Allocation[]) => {
@@ -387,10 +394,17 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-2 mt-2">
             <button 
               onClick={handleSaveFormula}
-              className="w-full py-3 bg-slate-800 text-white rounded-lg font-semibold hover:bg-slate-700 transition-colors shadow-sm flex items-center justify-center gap-2"
+              disabled={isSaving}
+              className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 shadow-sm flex items-center justify-center gap-2 ${
+                isSaving ? 'bg-slate-500 text-white cursor-wait scale-[0.98]' :
+                saveSuccess ? 'bg-emerald-600 text-white' :
+                'bg-slate-800 text-white hover:bg-slate-700 active:scale-[0.98]'
+              }`}
             >
-              <span className="material-symbols-outlined text-[18px]">save</span>
-              Save Formula
+              <span className={`material-symbols-outlined text-[18px] ${isSaving ? 'animate-spin' : saveSuccess ? 'animate-bounce' : ''}`}>
+                {isSaving ? 'sync' : saveSuccess ? 'check_circle' : 'save'}
+              </span>
+              {isSaving ? "Saving..." : saveSuccess ? "Formula Saved!" : "Save Formula"}
             </button>
           </div>
         </div>
