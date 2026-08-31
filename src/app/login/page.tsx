@@ -20,7 +20,7 @@ export default function LoginPage() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("registered") === "true") {
-        setSuccessMsg("Registration successful! Please check your email to confirm your account before logging in.");
+        setSuccessMsg("Registration successful! Please log in.");
         // Optional: remove query param from URL cleanly
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -53,9 +53,9 @@ export default function LoginPage() {
     } catch (err: unknown) {
       let errorMessage = err instanceof Error ? err.message : "Failed to log in. Please check your credentials.";
       
-      // Clarify generic Supabase error for unconfirmed emails
+      // Use generic Supabase error
       if (errorMessage === "Invalid login credentials") {
-        errorMessage = "Invalid login credentials. If you just registered, please ensure you have confirmed your email first.";
+        errorMessage = "Invalid login credentials. Please try again.";
       }
       
       setErrorMsg(errorMessage);
