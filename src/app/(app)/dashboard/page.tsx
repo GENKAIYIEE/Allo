@@ -28,7 +28,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [isInPenaltyZone, setIsInPenaltyZone] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
 
   useEffect(() => {
@@ -75,21 +74,6 @@ export default function DashboardPage() {
           }
         }
 
-        // Check Penalty Zone logic (if the user was over budget in their last 2 paydays)
-        const { data: recentLogs, error: recentError } = await supabase
-          .from("payday_logs")
-          .select("ipon_goal")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(2);
-          
-        if (recentError) throw recentError;
-          
-        if (recentLogs && recentLogs.length === 2) {
-          if (recentLogs[0].ipon_goal < 0 && recentLogs[1].ipon_goal < 0) {
-            setIsInPenaltyZone(true);
-          }
-        }
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data.";
         setErrorMsg(errorMessage);
@@ -121,8 +105,6 @@ export default function DashboardPage() {
   
   const iponGoal = numIncome - totalExpenses;
   const isOverBudget = totalExpenses > numIncome;
-  const penaltySavingsRequired = isInPenaltyZone ? numIncome * 0.2 : 0;
-  const isViolatingPenalty = isInPenaltyZone && iponGoal < penaltySavingsRequired;
 
   // The "System" Auto-Budget Logic
   useEffect(() => {
@@ -149,11 +131,6 @@ export default function DashboardPage() {
 
     if (numIncome <= 0) {
       setErrorMsg("Please enter a valid income.");
-      return;
-    }
-
-    if (isViolatingPenalty) {
-      setErrorMsg(`PENALTY ZONE ACTIVE: You must save at least 20% (₱${penaltySavingsRequired.toLocaleString()}) this payday.`);
       return;
     }
 
@@ -287,22 +264,20 @@ export default function DashboardPage() {
 
         {/* System Quests */}
         {numIncome > 0 && (
-          <section className={`p-4 rounded-xl shadow-sm mb-6 border ${isInPenaltyZone ? 'bg-red-950 text-red-100 border-red-500 shadow-[0_0_15px_rgba(220,38,38,0.5)] animate-pulse' : isOverBudget ? 'bg-orange-900 text-orange-100 border-orange-500' : 'bg-blue-900 text-blue-100 border-blue-500'} font-mono relative overflow-hidden transition-all duration-500 animate-fade-in-up-delay-2`}>
+          <section className={`p-4 rounded-xl shadow-sm mb-6 border ${isOverBudget ? 'bg-orange-900 text-orange-100 border-orange-500' : 'bg-blue-900 text-blue-100 border-blue-500'} font-mono relative overflow-hidden transition-all duration-500 animate-fade-in-up-delay-2`}>
             {/* Scanline overlay for quests */}
             <div className="absolute inset-0 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-[length:100%_4px,3px_100%] z-0 pointer-events-none opacity-30"></div>
             
             <div className="relative z-10 flex items-start gap-3">
               <span className="material-symbols-outlined text-3xl mt-1">
-                {isInPenaltyZone ? 'gavel' : isOverBudget ? 'warning' : 'task_alt'}
+                {isOverBudget ? 'warning' : 'task_alt'}
               </span>
               <div>
                 <h3 className="font-bold uppercase tracking-widest text-sm opacity-80">
-                  {isInPenaltyZone ? '[SYSTEM] PENALTY ZONE ACTIVE' : isOverBudget ? '[SYSTEM] EMERGENCY QUEST' : '[SYSTEM] DAILY QUEST'}
+                  {isOverBudget ? '[SYSTEM] EMERGENCY QUEST' : '[SYSTEM] DAILY QUEST'}
                 </h3>
                 <p className="text-sm mt-1">
-                  {isInPenaltyZone 
-                    ? `You failed the budget twice in a row! Penalty constraint applied: You MUST save 20% (₱${penaltySavingsRequired.toLocaleString()}) this payday to lift the penalty.`
-                    : isOverBudget 
+                  {isOverBudget 
                     ? "You exceeded the budget! Cut back tomorrow and save. No luxury spending!" 
                     : "Do not spend more than ₱500 today. Stick to the budget!"}
                 </p>

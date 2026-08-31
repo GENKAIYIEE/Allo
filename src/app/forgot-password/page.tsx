@@ -3,22 +3,35 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "../../../lib/supabase/client";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const router = useRouter();
+  const supabase = createClient();
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
 
-    // Frontend only for now - simulate API call
-    setTimeout(() => {
-      alert("Password reset link sent to " + email);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/update-password`,
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg("Password reset link sent! Please check your email.");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to send reset link.");
+    } finally {
       setLoading(false);
-      router.push("/login");
-    }, 1000);
+    }
   };
 
   return (
@@ -54,6 +67,18 @@ export default function ForgotPasswordPage() {
           >
             {loading ? "Sending..." : "Send Reset Link"}
           </button>
+          
+          {errorMsg && (
+            <div className="p-4 mt-2 bg-red-50 text-red-700 border border-red-100 rounded-xl text-sm font-medium animate-fade-in-up text-center">
+              {errorMsg}
+            </div>
+          )}
+
+          {successMsg && (
+            <div className="p-4 mt-2 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-xl text-sm font-medium animate-fade-in-up text-center">
+              {successMsg}
+            </div>
+          )}
         </form>
 
         <div className="text-center font-body-sm text-on-surface-variant">
