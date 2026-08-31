@@ -70,7 +70,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center text-center gap-4 animate-fade-in-up">
           <div className="bg-primary p-3 rounded-2xl shadow-sm mb-2 transition-transform duration-500 hover:scale-105 hover:shadow-md cursor-default">
             <Image 
-              src="/payflow_logo_final.png"
+              src="/allo_logo_v4.png"
               alt="Allo Logo"
               width={40}
               height={40}

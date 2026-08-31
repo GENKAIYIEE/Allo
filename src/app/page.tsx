@@ -47,7 +47,7 @@ export default function SplashPage() {
     <div className={`min-h-screen bg-[#001142] flex flex-col items-center justify-center transition-opacity duration-300 ${isFadingOut ? 'opacity-0' : 'opacity-100'}`}>
       <div className="flex flex-col items-center">
         <Image 
-          src="/payflow_logo_final.png" 
+          src="/allo_logo_v4.png" 
           alt="Allo Logo" 
           width={128} 
           height={128} 

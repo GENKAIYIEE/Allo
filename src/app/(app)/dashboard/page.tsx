@@ -218,7 +218,7 @@ export default function DashboardPage() {
       <header className="w-full bg-[#001142] text-white pt-12 pb-6 px-6 rounded-b-3xl shadow-md z-40 relative animate-fade-in-up">
         <div className="flex items-center justify-center">
           <Image 
-            src="/payflow_logo_final.png"
+            src="/allo_logo_v4.png"
             alt="Allo Logo"
             width={48}
             height={48}
