@@ -12,7 +12,8 @@ import { FINANCIAL_TIPS } from "../../../lib/constants/tips";
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [cutoff, setCutoff] = useState<"15th" | "30th">("15th");
+  const [cutoff, setCutoff] = useState<"15th" | "30th" | "Monthly">("15th");
+  const [salaryCycle, setSalaryCycle] = useState<"bi-monthly" | "monthly">("bi-monthly");
   const [income, setIncome] = useState<string>("");
   type Allocation = {
     id: string;
@@ -37,6 +38,13 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    const savedCycle = localStorage.getItem("salary_cycle_v1");
+    const currentCycle = savedCycle === "monthly" ? "monthly" : "bi-monthly";
+    setSalaryCycle(currentCycle);
+    if (currentCycle === "monthly") {
+      setCutoff("Monthly");
+    }
+
     const savedAllocations = localStorage.getItem("custom_allocations_v1");
     if (savedAllocations) {
       setAllocations(JSON.parse(savedAllocations));
@@ -73,10 +81,14 @@ export default function DashboardPage() {
           const cutoffs = data.map(log => log.cutoff_type);
           setLoggedCutoffs(cutoffs);
           
-          if (cutoffs.includes("15th") && !cutoffs.includes("30th")) {
-            setCutoff("30th");
-          } else if (cutoffs.includes("30th") && !cutoffs.includes("15th")) {
-            setCutoff("15th");
+          if (currentCycle === "monthly") {
+            // Cutoff stays "Monthly"
+          } else {
+            if (cutoffs.includes("15th") && !cutoffs.includes("30th")) {
+              setCutoff("30th");
+            } else if (cutoffs.includes("30th") && !cutoffs.includes("15th")) {
+              setCutoff("15th");
+            }
           }
         }
 
@@ -182,7 +194,7 @@ export default function DashboardPage() {
       setShowReviewModal(false);
       
       setLoggedCutoffs(prev => [...prev, cutoff]);
-      if (cutoff === "15th" && !loggedCutoffs.includes("30th")) {
+      if (salaryCycle === "bi-monthly" && cutoff === "15th" && !loggedCutoffs.includes("30th")) {
         setCutoff("30th");
       }
       
@@ -194,6 +206,8 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  const isMonthCompleted = salaryCycle === "monthly" ? loggedCutoffs.includes("Monthly") : (loggedCutoffs.includes("15th") && loggedCutoffs.includes("30th"));
 
   return (
     <div className="min-h-screen bg-[#F0F4F8] text-slate-800 pb-32 font-sans">
@@ -212,34 +226,42 @@ export default function DashboardPage() {
 
       <main className="max-w-md mx-auto px-5 -mt-4 relative z-50">
         {/* Segmented Control */}
-        <div className="flex bg-[#E2E8F0] rounded-full p-1 mb-6 shadow-sm animate-fade-in-up-delay-1">
-          <button 
-            type="button"
-            onClick={() => setCutoff("15th")}
-            disabled={loggedCutoffs.includes("15th")}
-            className={`flex-1 py-2 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${
-              loggedCutoffs.includes("15th")
-                ? "bg-transparent text-slate-400 opacity-60 cursor-not-allowed"
-                : cutoff === "15th" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
-            }`}
-          >
-            15th Payday {loggedCutoffs.includes("15th") && <span className="material-symbols-outlined text-[14px]">check_circle</span>}
-          </button>
-          <button 
-            type="button"
-            onClick={() => setCutoff("30th")}
-            disabled={loggedCutoffs.includes("30th")}
-            className={`flex-1 py-2 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${
-              loggedCutoffs.includes("30th")
-                ? "bg-transparent text-slate-400 opacity-60 cursor-not-allowed"
-                : cutoff === "30th" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
-            }`}
-          >
-            30th Payday {loggedCutoffs.includes("30th") && <span className="material-symbols-outlined text-[14px]">check_circle</span>}
-          </button>
-        </div>
+        {salaryCycle === "monthly" ? (
+          <div className="flex bg-[#E2E8F0] rounded-full p-1 mb-6 shadow-sm animate-fade-in-up-delay-1">
+            <div className="flex-1 py-2 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-1 bg-white text-slate-800 shadow-sm">
+              Monthly Payday {loggedCutoffs.includes("Monthly") && <span className="material-symbols-outlined text-[14px]">check_circle</span>}
+            </div>
+          </div>
+        ) : (
+          <div className="flex bg-[#E2E8F0] rounded-full p-1 mb-6 shadow-sm animate-fade-in-up-delay-1">
+            <button 
+              type="button"
+              onClick={() => setCutoff("15th")}
+              disabled={loggedCutoffs.includes("15th")}
+              className={`flex-1 py-2 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${
+                loggedCutoffs.includes("15th")
+                  ? "bg-transparent text-slate-400 opacity-60 cursor-not-allowed"
+                  : cutoff === "15th" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+              }`}
+            >
+              15th Payday {loggedCutoffs.includes("15th") && <span className="material-symbols-outlined text-[14px]">check_circle</span>}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setCutoff("30th")}
+              disabled={loggedCutoffs.includes("30th")}
+              className={`flex-1 py-2 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-1 ${
+                loggedCutoffs.includes("30th")
+                  ? "bg-transparent text-slate-400 opacity-60 cursor-not-allowed"
+                  : cutoff === "30th" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500"
+              }`}
+            >
+              30th Payday {loggedCutoffs.includes("30th") && <span className="material-symbols-outlined text-[14px]">check_circle</span>}
+            </button>
+          </div>
+        )}
 
-        {loggedCutoffs.includes("15th") && loggedCutoffs.includes("30th") && (
+        {isMonthCompleted && (
           <div className="bg-green-100 text-green-800 p-3 rounded-xl text-center text-sm font-bold mb-6 border border-green-200 animate-fade-in-up-delay-1">
             You have successfully logged all paydays for this month! Great job!
           </div>
@@ -253,6 +275,8 @@ export default function DashboardPage() {
           <div className="w-full bg-[#F4F7FA] rounded-xl flex items-center justify-center px-4 py-3 border border-slate-100 min-h-[64px]">
             {isPageLoading ? (
               <Skeleton className="w-40 h-10 bg-slate-200" />
+            ) : isMonthCompleted ? (
+              <span className="text-slate-400 font-semibold text-xl">Fully Logged</span>
             ) : (
               <>
                 <span className="text-3xl font-bold text-slate-800 mr-2">₱</span>
@@ -267,7 +291,11 @@ export default function DashboardPage() {
               </>
             )}
           </div>
-          <p className="text-xs text-slate-400 mt-3">Enter your net pay for this cut-off</p>
+          <p className="text-xs text-slate-400 mt-3 text-center">
+            {isMonthCompleted 
+              ? "You cannot add more logs until next month." 
+              : "Enter your net pay for this cut-off"}
+          </p>
         </section>
 
 
@@ -417,14 +445,13 @@ export default function DashboardPage() {
         )}
 
         {/* Submit Button */}
-        <button 
-          type="button"
-          onClick={handleReview}
-          disabled={loading || isOverBudget || numIncome <= 0 || (loggedCutoffs.includes("15th") && loggedCutoffs.includes("30th"))}
-          className={`w-full py-4 text-white font-bold rounded-xl transition-all active:scale-[0.98] shadow-md flex items-center justify-center gap-2 ${
-            loading || isOverBudget || numIncome <= 0 || (loggedCutoffs.includes("15th") && loggedCutoffs.includes("30th"))
-              ? 'bg-slate-400 cursor-not-allowed'
-              : 'bg-primary hover:bg-primary-container'
+        <button
+          disabled={loading || isOverBudget || numIncome <= 0 || isMonthCompleted}
+          onClick={() => setShowReviewModal(true)}
+          className={`w-full py-4 rounded-2xl font-headline-sm font-bold shadow-lg transition-all transform active:scale-95 flex justify-center items-center gap-2 ${
+            loading || isOverBudget || numIncome <= 0 || isMonthCompleted
+              ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              : 'bg-[#1062FE] hover:bg-[#0043CE] text-white hover:shadow-xl'
           }`}
         >
           <span className="material-symbols-outlined text-[20px]">
@@ -437,7 +464,7 @@ export default function DashboardPage() {
 
       {/* Review Modal */}
       {showReviewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-surface rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-outline-variant/30">
             <div className="bg-primary px-6 py-5 flex items-center gap-3">
               <span className="material-symbols-outlined text-white text-3xl">receipt_long</span>

@@ -34,6 +34,11 @@ export default function SettingsPage() {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  const [salaryCycle, setSalaryCycle] = useState<"bi-monthly" | "monthly">("bi-monthly");
+  const [isSavingCycle, setIsSavingCycle] = useState(false);
+  const [saveCycleSuccess, setSaveCycleSuccess] = useState(false);
 
   const supabase = createClient();
   const router = useRouter();
@@ -47,6 +52,11 @@ export default function SettingsPage() {
     fetchUser();
 
     // Load saved preferences
+    const savedCycle = localStorage.getItem("salary_cycle_v1");
+    if (savedCycle === "monthly" || savedCycle === "bi-monthly") {
+      setSalaryCycle(savedCycle);
+    }
+
     const savedAllocations = localStorage.getItem("custom_allocations_v1");
     if (savedAllocations) {
       setAllocations(JSON.parse(savedAllocations));
@@ -62,6 +72,17 @@ export default function SettingsPage() {
       }
     }
   }, [supabase.auth]);
+
+  const handleSaveCycle = (cycle: "bi-monthly" | "monthly") => {
+    setSalaryCycle(cycle);
+    setIsSavingCycle(true);
+    setTimeout(() => {
+      localStorage.setItem("salary_cycle_v1", cycle);
+      setIsSavingCycle(false);
+      setSaveCycleSuccess(true);
+      setTimeout(() => setSaveCycleSuccess(false), 2000);
+    }, 400);
+  };
 
   const handleSaveFormula = () => {
     const total = allocations.reduce((sum, a) => sum + a.pct, 0);
@@ -114,39 +135,16 @@ export default function SettingsPage() {
     });
   };
 
-  const handleLogout = async () => {
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
     // Clear the app_unlocked cookie
     document.cookie = "app_unlocked=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
-  };
-
-  const [resetting, setResetting] = useState(false);
-
-  const handleResetCycle = async () => {
-    if (!user) return;
-    if (!confirm("Are you sure you want to reset the current month's cycle? This will delete all payday logs for this month and let you test the dashboard again.")) return;
-    
-    setResetting(true);
-    try {
-      const yearMonth = formatInTimeZone(new Date(), "Asia/Manila", "yyyy-MM");
-      const startOfMonthIso = `${yearMonth}-01T00:00:00+08:00`;
-
-      const { error } = await supabase
-        .from("payday_logs")
-        .delete()
-        .eq("user_id", user.id)
-        .gte("created_at", startOfMonthIso);
-        
-      if (error) throw error;
-      alert("Cycle reset successfully! You can now log paydays for this month again.");
-      router.push("/dashboard");
-    } catch (err: any) {
-      alert(err.message || "Failed to reset cycle.");
-    } finally {
-      setResetting(false);
-    }
   };
 
   if (loading) {
@@ -198,6 +196,33 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* Salary Cycle Setting */}
+      <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant mb-6 shadow-sm overflow-hidden animate-fade-in-up-delay-1">
+        <div className="px-6 py-4 border-b border-outline-variant bg-surface-container-low/30 flex justify-between items-center">
+          <h3 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Salary Cycle</h3>
+          {isSavingCycle ? (
+            <span className="text-primary font-bold text-[10px] uppercase animate-pulse">Saving...</span>
+          ) : saveCycleSuccess ? (
+            <span className="text-secondary font-bold text-[10px] uppercase animate-pulse">Saved!</span>
+          ) : null}
+        </div>
+        <div className="px-6 py-4 flex flex-col gap-3">
+          <label className="flex items-center gap-3 p-3 rounded-xl border border-outline-variant cursor-pointer hover:bg-surface-container-low transition-colors" onClick={() => handleSaveCycle("bi-monthly")}>
+            <input type="radio" name="salaryCycle" checked={salaryCycle === "bi-monthly"} readOnly className="w-4 h-4 text-primary focus:ring-primary" />
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-slate-800">Bi-Monthly</span>
+              <span className="text-xs text-slate-500">I get paid twice a month (e.g., 15th & 30th)</span>
+            </div>
+          </label>
+          <label className="flex items-center gap-3 p-3 rounded-xl border border-outline-variant cursor-pointer hover:bg-surface-container-low transition-colors" onClick={() => handleSaveCycle("monthly")}>
+            <input type="radio" name="salaryCycle" checked={salaryCycle === "monthly"} readOnly className="w-4 h-4 text-primary focus:ring-primary" />
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-slate-800">Monthly</span>
+              <span className="text-xs text-slate-500">I get paid once a month</span>
+            </div>
+          </label>
+        </div>
+      </section>
 
       <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant mb-6 shadow-sm overflow-hidden animate-fade-in-up-delay-2">
         <div className="px-6 py-4 border-b border-outline-variant bg-surface-container-low/30 flex justify-between items-center">
@@ -410,31 +435,12 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-sm overflow-hidden mb-6">
-        <div className="px-6 py-4 border-b border-outline-variant bg-surface-container-low/30">
-          <h3 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Developer / Testing</h3>
-        </div>
-        <div className="p-6">
-          <p className="text-sm text-on-surface-variant mb-4">
-            If you are locked out of the dashboard because you have already logged all paydays for this month, you can reset the cycle to test the dashboard again.
-          </p>
-          <button 
-            onClick={handleResetCycle}
-            disabled={resetting}
-            className={`w-full py-3 rounded-lg font-semibold transition-colors shadow-sm flex items-center justify-center gap-2 ${resetting ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-secondary text-on-secondary hover:bg-secondary-fixed'}`}
-          >
-            <span className="material-symbols-outlined text-[18px]">refresh</span>
-            {resetting ? "Resetting..." : "Reset Current Month Cycle"}
-          </button>
-        </div>
-      </section>
-
       <section className="bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-outline-variant bg-surface-container-low/30">
           <h3 className="font-label-caps text-label-caps text-on-surface-variant uppercase tracking-wider">Account</h3>
         </div>
         <button 
-          onClick={handleLogout}
+          onClick={handleLogoutClick}
           className="w-full px-6 py-4 flex items-center justify-between hover:bg-error-container/20 transition-colors text-left active:bg-error-container/30 text-error"
         >
           <div className="flex items-center gap-3">
@@ -443,6 +449,38 @@ export default function SettingsPage() {
           </div>
         </button>
       </section>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-surface-container-lowest rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-outline-variant/30">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-error-container/20 text-error rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="material-symbols-outlined text-[32px]">logout</span>
+              </div>
+              <h2 className="text-xl font-bold text-on-surface mb-2">Log Out</h2>
+              <p className="text-on-surface-variant text-sm mb-6">
+                Are you sure you want to log out of your account?
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={confirmLogout}
+                  className="w-full py-3.5 bg-error text-on-error rounded-xl font-bold shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                  Yes, Log Out
+                </button>
+                <button
+                  onClick={() => setShowLogoutModal(false)}
+                  className="w-full py-3.5 bg-surface-container-high text-on-surface rounded-xl font-bold transition-colors hover:bg-surface-container-highest active:scale-95"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
