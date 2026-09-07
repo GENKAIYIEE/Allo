@@ -1,4 +1,5 @@
 import BottomNav from "../../components/BottomNav";
+import { OfflineSyncManager } from "../../components/OfflineSyncManager";
 
 export default function AppLayout({
   children,
@@ -7,6 +8,7 @@ export default function AppLayout({
 }>) {
   return (
     <>
+      <OfflineSyncManager />
       {children}
       <BottomNav />
     </>

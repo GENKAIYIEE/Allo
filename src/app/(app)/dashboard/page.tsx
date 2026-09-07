@@ -59,6 +59,20 @@ export default function DashboardPage() {
 
     async function fetchLoggedCutoffs() {
       try {
+        // Read from cache first for immediate offline support
+        const cachedCutoffs = localStorage.getItem("cached_logged_cutoffs_v1");
+        if (cachedCutoffs) {
+          const cutoffs = JSON.parse(cachedCutoffs);
+          setLoggedCutoffs(cutoffs);
+          if (currentCycle !== "monthly") {
+            if (cutoffs.includes("15th") && !cutoffs.includes("30th")) {
+              setCutoff("30th");
+            } else if (cutoffs.includes("30th") && !cutoffs.includes("15th")) {
+              setCutoff("15th");
+            }
+          }
+        }
+
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
           router.push("/login");
@@ -69,6 +83,7 @@ export default function DashboardPage() {
         const yearMonth = formatInTimeZone(new Date(), "Asia/Manila", "yyyy-MM");
         const startOfMonthIso = `${yearMonth}-01T00:00:00+08:00`;
 
+        // If we're offline, this fetch might throw, but we already have cached data
         const { data, error } = await supabase
           .from("payday_logs")
           .select("cutoff_type")
@@ -80,6 +95,7 @@ export default function DashboardPage() {
         if (data) {
           const cutoffs = data.map(log => log.cutoff_type);
           setLoggedCutoffs(cutoffs);
+          localStorage.setItem("cached_logged_cutoffs_v1", JSON.stringify(cutoffs));
           
           if (currentCycle === "monthly") {
             // Cutoff stays "Monthly"
@@ -93,8 +109,11 @@ export default function DashboardPage() {
         }
 
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data.";
-        setErrorMsg(errorMessage);
+        // Only show error if we also have no cached data, otherwise silently degrade to offline mode
+        if (!localStorage.getItem("cached_logged_cutoffs_v1")) {
+          const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data.";
+          setErrorMsg(errorMessage);
+        }
       } finally {
         // Artificial delay to ensure skeleton animation feels smooth and prevents flickers on fast networks
         setTimeout(() => setIsPageLoading(false), 300);
@@ -172,23 +191,42 @@ export default function DashboardPage() {
         customAllocations[alloc.name] = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
       });
 
-      // Legacy fallback for required columns
       const numDaily = customAllocations["Daily Expenses"] || 0;
       const numFamily = customAllocations["Family Support"] || 0;
 
-      const { error: insertError } = await supabase.from("payday_logs").insert({
+      const payload = {
         user_id: user.id,
         cutoff_type: cutoff,
         income: numIncome,
         daily_expenses: numDaily,
         family_support: numFamily,
         ipon_goal: iponGoal,
-        custom_allocations: customAllocations
-      });
+        custom_allocations: customAllocations,
+        created_at: new Date().toISOString()
+      };
 
-      if (insertError) throw insertError;
+      if (!navigator.onLine) {
+        // Offline Mode: Save to localStorage Outbox
+        const existingQueue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+        existingQueue.push({
+          id: `pending-${Date.now()}`,
+          ...payload,
+          is_pending_sync: true
+        });
+        localStorage.setItem('offline_sync_queue', JSON.stringify(existingQueue));
+        
+        // Update cached cutoffs optimistically
+        const cachedCutoffs = JSON.parse(localStorage.getItem("cached_logged_cutoffs_v1") || '[]');
+        localStorage.setItem("cached_logged_cutoffs_v1", JSON.stringify([...cachedCutoffs, cutoff]));
+        
+        setSuccessMsg("You are offline. Saved locally, will sync when online!");
+      } else {
+        // Online Mode: Save directly to Supabase
+        const { error: insertError } = await supabase.from("payday_logs").insert(payload);
+        if (insertError) throw insertError;
+        setSuccessMsg("Successfully saved to history!");
+      }
 
-      setSuccessMsg("Successfully saved to history!");
       setIncome("");
       setExpenseValues({});
       setShowReviewModal(false);
