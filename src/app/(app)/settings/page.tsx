@@ -20,12 +20,53 @@ export default function SettingsPage() {
     color: string;
   };
 
+  type SmartBracket = {
+    id: string;
+    name: string;
+    threshold: number;
+    allocations: Allocation[];
+  };
+
   const defaultAllocations: Allocation[] = [
     { id: "daily", name: "Daily Expenses", icon: "list_alt", pct: 40, color: "blue" },
     { id: "family", name: "Family Support", icon: "group", pct: 35, color: "orange" }
   ];
 
+  const defaultSmartBrackets: SmartBracket[] = [
+    {
+      id: "low",
+      name: "Below ₱15,000",
+      threshold: 15000,
+      allocations: [
+        { id: "daily", name: "Daily Expenses", icon: "list_alt", pct: 70, color: "blue" },
+        { id: "family", name: "Family Support", icon: "group", pct: 20, color: "orange" }
+      ]
+    },
+    {
+      id: "mid",
+      name: "₱15,000 - ₱30,000",
+      threshold: 30000,
+      allocations: [
+        { id: "daily", name: "Daily Expenses", icon: "list_alt", pct: 50, color: "blue" },
+        { id: "family", name: "Family Support", icon: "group", pct: 30, color: "orange" }
+      ]
+    },
+    {
+      id: "high",
+      name: "Above ₱30,000",
+      threshold: Infinity,
+      allocations: [
+        { id: "daily", name: "Daily Expenses", icon: "list_alt", pct: 40, color: "blue" },
+        { id: "family", name: "Family Support", icon: "group", pct: 35, color: "orange" }
+      ]
+    }
+  ];
+
   const [allocations, setAllocations] = useState<Allocation[]>(defaultAllocations);
+  const [isSmartMode, setIsSmartMode] = useState(false);
+  const [smartBrackets, setSmartBrackets] = useState<SmartBracket[]>(defaultSmartBrackets);
+  const [expandedBracket, setExpandedBracket] = useState<string | null>("low");
+
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -71,6 +112,15 @@ export default function SettingsPage() {
         ]);
       }
     }
+
+    const savedSmartMode = localStorage.getItem("is_smart_mode_v1");
+    if (savedSmartMode === "true") {
+      setIsSmartMode(true);
+    }
+    const savedSmartBrackets = localStorage.getItem("smart_allocation_config_v1");
+    if (savedSmartBrackets) {
+      setSmartBrackets(JSON.parse(savedSmartBrackets));
+    }
   }, [supabase.auth]);
 
   const handleSaveCycle = (cycle: "bi-monthly" | "monthly") => {
@@ -85,16 +135,31 @@ export default function SettingsPage() {
   };
 
   const handleSaveFormula = () => {
-    const total = allocations.reduce((sum, a) => sum + a.pct, 0);
-    if (total > 100) {
-      alert("Your total allocations exceed 100%. Please reduce a category or use Auto-Balance.");
-      return;
+    if (isSmartMode) {
+      for (const bracket of smartBrackets) {
+        const total = bracket.allocations.reduce((sum, a) => sum + a.pct, 0);
+        if (total > 100) {
+          alert(`Your allocations in ${bracket.name} exceed 100%. Please reduce a category.`);
+          return;
+        }
+      }
+    } else {
+      const total = allocations.reduce((sum, a) => sum + a.pct, 0);
+      if (total > 100) {
+        alert("Your total allocations exceed 100%. Please reduce a category or use Auto-Balance.");
+        return;
+      }
     }
     
     setIsSaving(true);
     // Simulate network delay for animation effect
     setTimeout(() => {
-      localStorage.setItem("custom_allocations_v1", JSON.stringify(allocations));
+      localStorage.setItem("is_smart_mode_v1", isSmartMode ? "true" : "false");
+      if (isSmartMode) {
+        localStorage.setItem("smart_allocation_config_v1", JSON.stringify(smartBrackets));
+      } else {
+        localStorage.setItem("custom_allocations_v1", JSON.stringify(allocations));
+      }
       setIsSaving(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -231,189 +296,264 @@ export default function SettingsPage() {
         </div>
         <div className="px-6 py-4 flex flex-col gap-4">
           
-          {allocations.map((alloc, idx) => (
-            <div key={alloc.id} className="flex flex-col gap-2">
-              <div className="flex justify-between items-center relative">
-                {editingCategory === alloc.id ? (
-                  <div className="flex items-center gap-2 w-full mr-4">
-                    <span className={`material-symbols-outlined text-[16px] text-${alloc.color}-500`}>{alloc.icon}</span>
-                    <input
-                      type="text"
-                      value={editingName}
-                      onChange={(e) => setEditingName(e.target.value)}
-                      className="border-b-2 border-primary outline-none text-sm font-semibold text-slate-700 bg-transparent flex-1 py-1"
-                      autoFocus
-                      onBlur={() => {
-                        if (editingName.trim()) {
-                          const newAllocs = [...allocations];
-                          newAllocs[idx].name = editingName.trim();
-                          setAllocations(newAllocs);
-                        }
-                        setEditingCategory(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') e.currentTarget.blur();
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
-                    <span className={`material-symbols-outlined text-[16px] text-${alloc.color}-500`}>{alloc.icon}</span>
-                    {alloc.name}
-                  </label>
-                )}
+          <div className="flex items-center justify-between bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">Smart Salary Allocation</h4>
+              <p className="text-xs text-slate-500 mt-1">Dynamically adjust percentages based on income size.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" className="sr-only peer" checked={isSmartMode} onChange={(e) => setIsSmartMode(e.target.checked)} />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            </label>
+          </div>
 
+          {!isSmartMode ? (
+            <>
+              {allocations.map((alloc, idx) => (
+                <div key={alloc.id} className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center relative">
+                    {editingCategory === alloc.id ? (
+                      <div className="flex items-center gap-2 w-full mr-4">
+                        <span className={`material-symbols-outlined text-[16px] text-${alloc.color}-500`}>{alloc.icon}</span>
+                        <input
+                          type="text"
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          className="border-b-2 border-primary outline-none text-sm font-semibold text-slate-700 bg-transparent flex-1 py-1"
+                          autoFocus
+                          onBlur={() => {
+                            if (editingName.trim()) {
+                              const newAllocs = [...allocations];
+                              newAllocs[idx].name = editingName.trim();
+                              setAllocations(newAllocs);
+                            }
+                            setEditingCategory(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                        <span className={`material-symbols-outlined text-[16px] text-${alloc.color}-500`}>{alloc.icon}</span>
+                        {alloc.name}
+                      </label>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold text-${alloc.color}-600 w-8 text-right`}>{alloc.pct}%</span>
+                      <div className="relative">
+                        <button 
+                          onClick={() => setActiveMenu(activeMenu === alloc.id ? null : alloc.id)}
+                          className="text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center p-1 rounded-full hover:bg-slate-100"
+                          title="Options"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                        </button>
+                        
+                        {activeMenu === alloc.id && (
+                          <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 w-32">
+                            <button 
+                              onClick={() => {
+                                setEditingCategory(alloc.id);
+                                setEditingName(alloc.name);
+                                setActiveMenu(null);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-slate-50 text-slate-700 flex items-center gap-2"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">edit</span>
+                              Rename
+                            </button>
+                            {alloc.id !== 'daily' && alloc.id !== 'family' && (
+                              <button 
+                                onClick={() => {
+                                  setAllocations(allocations.filter(a => a.id !== alloc.id));
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-red-50 text-red-600 flex items-center gap-2"
+                              >
+                                <span className="material-symbols-outlined text-[16px]">delete</span>
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <input 
+                    type="range" 
+                    min="0" max="100" 
+                    value={alloc.pct} 
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      const newAllocs = [...allocations];
+                      newAllocs[idx].pct = val;
+                      setAllocations(newAllocs);
+                    }}
+                    className={`w-full accent-${alloc.color}-500`}
+                  />
+                </div>
+              ))}
+
+              <div className={`flex justify-between items-center py-3 pl-4 pr-1 rounded-lg border mt-2 mb-2 ${allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-100'}`}>
+                <span className={`text-sm font-semibold flex items-center gap-1 ${allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'text-red-700' : 'text-green-700'}`}>
+                  <span className="material-symbols-outlined text-[16px]">
+                    {allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'warning' : 'savings'}
+                  </span>
+                  {allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'Over Allocated!' : 'Savings'}
+                </span>
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm font-bold text-${alloc.color}-600 w-8 text-right`}>{alloc.pct}%</span>
+                  <span className={`text-sm font-bold w-8 text-right ${allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'text-red-700' : 'text-green-700'}`}>
+                    {100 - allocations.reduce((sum, a) => sum + a.pct, 0)}%
+                  </span>
                   <div className="relative">
                     <button 
-                      onClick={() => setActiveMenu(activeMenu === alloc.id ? null : alloc.id)}
+                      onClick={() => alert("The Savings category is the core of the System's Vault. It cannot be modified.")}
                       className="text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center p-1 rounded-full hover:bg-slate-100"
-                      title="Options"
+                      title="System Core"
                     >
                       <span className="material-symbols-outlined text-[18px]">more_vert</span>
                     </button>
-                    
-                    {activeMenu === alloc.id && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg py-1 z-20 w-32">
-                         <button 
-                           onClick={() => {
-                             setEditingCategory(alloc.id);
-                             setEditingName(alloc.name);
-                             setActiveMenu(null);
-                           }}
-                           className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-slate-50 text-slate-700 flex items-center gap-2"
-                         >
-                           <span className="material-symbols-outlined text-[16px]">edit</span>
-                           Rename
-                         </button>
-                         {alloc.id !== 'daily' && alloc.id !== 'family' && (
-                           <button 
-                             onClick={() => {
-                               setAllocations(allocations.filter(a => a.id !== alloc.id));
-                               setActiveMenu(null);
-                             }}
-                             className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-red-50 text-red-600 flex items-center gap-2"
-                           >
-                             <span className="material-symbols-outlined text-[16px]">delete</span>
-                             Delete
-                           </button>
-                         )}
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
-              <input 
-                type="range" 
-                min="0" max="100" 
-                value={alloc.pct} 
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  const newAllocs = [...allocations];
-                  newAllocs[idx].pct = val;
-                  setAllocations(newAllocs);
-                }}
-                className={`w-full accent-${alloc.color}-500`}
-              />
-            </div>
-          ))}
 
-          <div className={`flex justify-between items-center py-3 pl-4 pr-1 rounded-lg border mt-2 mb-2 ${allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-100'}`}>
-            <span className={`text-sm font-semibold flex items-center gap-1 ${allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'text-red-700' : 'text-green-700'}`}>
-              <span className="material-symbols-outlined text-[16px]">
-                {allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'warning' : 'savings'}
-              </span>
-              {allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'Over Allocated!' : 'Savings'}
-            </span>
-            <div className="flex items-center gap-2">
-              <span className={`text-sm font-bold w-8 text-right ${allocations.reduce((sum, a) => sum + a.pct, 0) > 100 ? 'text-red-700' : 'text-green-700'}`}>
-                {100 - allocations.reduce((sum, a) => sum + a.pct, 0)}%
-              </span>
-              <div className="relative">
+              {showAddForm ? (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-2">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Add Custom Category</h4>
+                  <div className="flex flex-col gap-3">
+                    <input 
+                      type="text" 
+                      placeholder="Category Name (e.g. Tithes, Investment)"
+                      value={newCatName}
+                      onChange={(e) => setNewCatName(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary"
+                    />
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="number" 
+                        min="1" max="100"
+                        placeholder="Auto"
+                        value={newCatPct}
+                        onChange={(e) => setNewCatPct(e.target.value)}
+                        className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary placeholder-slate-400"
+                      />
+                      <span className="text-sm font-semibold text-slate-600">% (Optional)</span>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      <button 
+                        onClick={() => {
+                          if (!newCatName.trim()) return;
+                          const colors = ["purple", "pink", "rose", "teal", "indigo", "cyan"];
+                          const randomColor = colors[allocations.length % colors.length];
+                          
+                          const parsedPct = parseInt(newCatPct);
+                          const isAuto = isNaN(parsedPct) || parsedPct <= 0;
+
+                          const newAlloc = {
+                            id: `custom_${Date.now()}`,
+                            name: newCatName,
+                            icon: "folder_special",
+                            pct: isAuto ? 0 : parsedPct,
+                            color: randomColor
+                          };
+
+                          let nextAllocs = [...allocations, newAlloc];
+                          
+                          if (isAuto) {
+                            nextAllocs = handleAutoBalance(nextAllocs);
+                          }
+                          
+                          setAllocations(nextAllocs);
+                          setNewCatName("");
+                          setNewCatPct("");
+                          setShowAddForm(false);
+                        }}
+                        className="flex-1 py-2 bg-primary text-white rounded-lg text-sm font-bold"
+                      >
+                        Add
+                      </button>
+                      <button 
+                        onClick={() => setShowAddForm(false)}
+                        className="flex-1 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-bold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <button 
-                  onClick={() => alert("The Savings category is the core of the System's Vault. It cannot be modified.")}
-                  className="text-slate-400 hover:text-slate-600 transition-colors flex items-center justify-center p-1 rounded-full hover:bg-slate-100"
-                  title="System Core"
+                  onClick={() => setShowAddForm(true)}
+                  className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-700 hover:border-slate-400 transition-all font-semibold text-sm mb-4"
                 >
-                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
+                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Add Allocation Category
                 </button>
-              </div>
-            </div>
-          </div>
-
-          {showAddForm ? (
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-2">
-              <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Add Custom Category</h4>
-              <div className="flex flex-col gap-3">
-                <input 
-                  type="text" 
-                  placeholder="Category Name (e.g. Tithes, Investment)"
-                  value={newCatName}
-                  onChange={(e) => setNewCatName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary"
-                />
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="number" 
-                    min="1" max="100"
-                    placeholder="Auto"
-                    value={newCatPct}
-                    onChange={(e) => setNewCatPct(e.target.value)}
-                    className="w-20 px-3 py-2 border border-slate-300 rounded-lg text-sm outline-none focus:border-primary placeholder-slate-400"
-                  />
-                  <span className="text-sm font-semibold text-slate-600">% (Optional)</span>
-                </div>
-                <div className="flex gap-2 mt-2">
-                  <button 
-                    onClick={() => {
-                      if (!newCatName.trim()) return;
-                      const colors = ["purple", "pink", "rose", "teal", "indigo", "cyan"];
-                      const randomColor = colors[allocations.length % colors.length];
-                      
-                      const parsedPct = parseInt(newCatPct);
-                      const isAuto = isNaN(parsedPct) || parsedPct <= 0;
-
-                      const newAlloc = {
-                        id: `custom_${Date.now()}`,
-                        name: newCatName,
-                        icon: "folder_special",
-                        pct: isAuto ? 0 : parsedPct,
-                        color: randomColor
-                      };
-
-                      let nextAllocs = [...allocations, newAlloc];
-                      
-                      if (isAuto) {
-                        nextAllocs = handleAutoBalance(nextAllocs);
-                      }
-                      
-                      setAllocations(nextAllocs);
-                      setNewCatName("");
-                      setNewCatPct("");
-                      setShowAddForm(false);
-                    }}
-                    className="flex-1 py-2 bg-primary text-white rounded-lg text-sm font-bold"
-                  >
-                    Add
-                  </button>
-                  <button 
-                    onClick={() => setShowAddForm(false)}
-                    className="flex-1 py-2 bg-slate-200 text-slate-700 rounded-lg text-sm font-bold"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           ) : (
-            <button 
-              onClick={() => setShowAddForm(true)}
-              className="flex items-center justify-center gap-2 py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl hover:bg-slate-50 hover:text-slate-700 hover:border-slate-400 transition-all font-semibold text-sm mb-4"
-            >
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              Add Allocation Category
-            </button>
+            <div className="flex flex-col gap-4">
+              {smartBrackets.map((bracket, bIdx) => {
+                const totalPct = bracket.allocations.reduce((sum, a) => sum + a.pct, 0);
+                const isOver = totalPct > 100;
+                
+                return (
+                  <div key={bracket.id} className="border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+                    <button 
+                      onClick={() => setExpandedBracket(expandedBracket === bracket.id ? null : bracket.id)}
+                      className="w-full bg-surface-container-low px-4 py-3 flex items-center justify-between text-left hover:bg-surface-container transition-colors"
+                    >
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-800">{bracket.name}</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          {isOver ? (
+                            <span className="text-error font-semibold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">warning</span> Over Allocated!
+                            </span>
+                          ) : (
+                            <span className="text-green-600 font-semibold flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[12px]">savings</span> Savings: {100 - totalPct}%
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                      <span className={`material-symbols-outlined text-slate-400 transition-transform duration-300 ${expandedBracket === bracket.id ? 'rotate-180' : ''}`}>
+                        expand_more
+                      </span>
+                    </button>
+                    
+                    {expandedBracket === bracket.id && (
+                      <div className="p-4 bg-white border-t border-outline-variant/50 flex flex-col gap-4">
+                        {bracket.allocations.map((alloc, aIdx) => (
+                          <div key={alloc.id} className="flex flex-col gap-2">
+                            <div className="flex justify-between items-center">
+                              <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                                <span className={`material-symbols-outlined text-[16px] text-${alloc.color}-500`}>{alloc.icon}</span>
+                                {alloc.name}
+                              </label>
+                              <span className={`text-sm font-bold text-${alloc.color}-600`}>{alloc.pct}%</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" max="100" 
+                              value={alloc.pct} 
+                              disabled
+                              className={`w-full accent-${alloc.color}-500 opacity-80 cursor-not-allowed`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-xs text-slate-500 italic mt-2">
+                *Smart Brackets dynamically apply these allocations based on your inputted net income in the Dashboard. The percentages are managed by the System Vault and cannot be modified.
+              </p>
+            </div>
           )}
 
           <div className="flex flex-col gap-2 mt-2">

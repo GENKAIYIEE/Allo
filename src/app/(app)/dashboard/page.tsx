@@ -23,6 +23,17 @@ export default function DashboardPage() {
     color: string;
   };
   const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [isSmartMode, setIsSmartMode] = useState(false);
+  
+  type SmartBracket = {
+    id: string;
+    name: string;
+    threshold: number;
+    allocations: Allocation[];
+  };
+  const [smartBrackets, setSmartBrackets] = useState<SmartBracket[]>([]);
+  const [activeBracket, setActiveBracket] = useState<SmartBracket | null>(null);
+  
   const [expenseValues, setExpenseValues] = useState<Record<string, string>>({});
   const [loggedCutoffs, setLoggedCutoffs] = useState<string[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -56,9 +67,32 @@ export default function DashboardPage() {
         { id: "family", name: "Family Support", icon: "group", pct: savedFamily ? parseInt(savedFamily, 10) : 35, color: "orange" }
       ]);
     }
+    
+    const savedSmartMode = localStorage.getItem("is_smart_mode_v1");
+    if (savedSmartMode === "true") {
+      setIsSmartMode(true);
+      const savedBrackets = localStorage.getItem("smart_allocation_config_v1");
+      if (savedBrackets) {
+        setSmartBrackets(JSON.parse(savedBrackets));
+      }
+    }
 
     async function fetchLoggedCutoffs() {
       try {
+        // Read from cache first for immediate offline support
+        const cachedCutoffs = localStorage.getItem("cached_logged_cutoffs_v1");
+        if (cachedCutoffs) {
+          const cutoffs = JSON.parse(cachedCutoffs);
+          setLoggedCutoffs(cutoffs);
+          if (currentCycle !== "monthly") {
+            if (cutoffs.includes("15th") && !cutoffs.includes("30th")) {
+              setCutoff("30th");
+            } else if (cutoffs.includes("30th") && !cutoffs.includes("15th")) {
+              setCutoff("15th");
+            }
+          }
+        }
+
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError || !user) {
           router.push("/login");
@@ -69,6 +103,7 @@ export default function DashboardPage() {
         const yearMonth = formatInTimeZone(new Date(), "Asia/Manila", "yyyy-MM");
         const startOfMonthIso = `${yearMonth}-01T00:00:00+08:00`;
 
+        // If we're offline, this fetch might throw, but we already have cached data
         const { data, error } = await supabase
           .from("payday_logs")
           .select("cutoff_type")
@@ -80,6 +115,7 @@ export default function DashboardPage() {
         if (data) {
           const cutoffs = data.map(log => log.cutoff_type);
           setLoggedCutoffs(cutoffs);
+          localStorage.setItem("cached_logged_cutoffs_v1", JSON.stringify(cutoffs));
           
           if (currentCycle === "monthly") {
             // Cutoff stays "Monthly"
@@ -93,8 +129,11 @@ export default function DashboardPage() {
         }
 
       } catch (err: unknown) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data.";
-        setErrorMsg(errorMessage);
+        // Only show error if we also have no cached data, otherwise silently degrade to offline mode
+        if (!localStorage.getItem("cached_logged_cutoffs_v1")) {
+          const errorMessage = err instanceof Error ? err.message : "Failed to load dashboard data.";
+          setErrorMsg(errorMessage);
+        }
       } finally {
         // Artificial delay to ensure skeleton animation feels smooth and prevents flickers on fast networks
         setTimeout(() => setIsPageLoading(false), 300);
@@ -117,7 +156,9 @@ export default function DashboardPage() {
 
   const numIncome = parseFloat(income.replace(/,/g, '')) || 0;
   
-  const totalExpenses = allocations.reduce((sum, alloc) => {
+  const activeAllocationsForCalc = isSmartMode && activeBracket ? activeBracket.allocations : allocations;
+  
+  const totalExpenses = activeAllocationsForCalc.reduce((sum, alloc) => {
     return sum + (parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0);
   }, 0);
   
@@ -127,15 +168,33 @@ export default function DashboardPage() {
   // The "System" Auto-Budget Logic
   useEffect(() => {
     if (numIncome > 0) {
+      let activeAllocs = allocations;
+      let matchedBracket = null;
+      
+      if (isSmartMode && smartBrackets.length > 0) {
+        // Find bracket
+        if (numIncome < 15000) matchedBracket = smartBrackets.find(b => b.id === 'low');
+        else if (numIncome <= 30000) matchedBracket = smartBrackets.find(b => b.id === 'mid');
+        else matchedBracket = smartBrackets.find(b => b.id === 'high');
+        
+        if (matchedBracket) {
+          activeAllocs = matchedBracket.allocations;
+          setActiveBracket(matchedBracket);
+        }
+      } else {
+        setActiveBracket(null);
+      }
+
       const newValues: Record<string, string> = {};
-      allocations.forEach(alloc => {
+      activeAllocs.forEach(alloc => {
         newValues[alloc.id] = formatCurrencyInput((numIncome * (alloc.pct / 100)).toFixed(0));
       });
       setExpenseValues(newValues);
     } else {
       setExpenseValues({});
+      setActiveBracket(null);
     }
-  }, [income, allocations]);
+  }, [income, allocations, isSmartMode, smartBrackets]);
 
   const handleReview = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
@@ -168,27 +227,47 @@ export default function DashboardPage() {
 
       // Prepare custom allocations payload
       const customAllocations: Record<string, number> = {};
-      allocations.forEach(alloc => {
+      const activeAllocsToSave = isSmartMode && activeBracket ? activeBracket.allocations : allocations;
+      activeAllocsToSave.forEach(alloc => {
         customAllocations[alloc.name] = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
       });
 
-      // Legacy fallback for required columns
       const numDaily = customAllocations["Daily Expenses"] || 0;
       const numFamily = customAllocations["Family Support"] || 0;
 
-      const { error: insertError } = await supabase.from("payday_logs").insert({
+      const payload = {
         user_id: user.id,
         cutoff_type: cutoff,
         income: numIncome,
         daily_expenses: numDaily,
         family_support: numFamily,
         ipon_goal: iponGoal,
-        custom_allocations: customAllocations
-      });
+        custom_allocations: customAllocations,
+        created_at: new Date().toISOString()
+      };
 
-      if (insertError) throw insertError;
+      if (!navigator.onLine) {
+        // Offline Mode: Save to localStorage Outbox
+        const existingQueue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+        existingQueue.push({
+          id: `pending-${Date.now()}`,
+          ...payload,
+          is_pending_sync: true
+        });
+        localStorage.setItem('offline_sync_queue', JSON.stringify(existingQueue));
+        
+        // Update cached cutoffs optimistically
+        const cachedCutoffs = JSON.parse(localStorage.getItem("cached_logged_cutoffs_v1") || '[]');
+        localStorage.setItem("cached_logged_cutoffs_v1", JSON.stringify([...cachedCutoffs, cutoff]));
+        
+        setSuccessMsg("You are offline. Saved locally, will sync when online!");
+      } else {
+        // Online Mode: Save directly to Supabase
+        const { error: insertError } = await supabase.from("payday_logs").insert(payload);
+        if (insertError) throw insertError;
+        setSuccessMsg("Successfully saved to history!");
+      }
 
-      setSuccessMsg("Successfully saved to history!");
       setIncome("");
       setExpenseValues({});
       setShowReviewModal(false);
@@ -301,11 +380,18 @@ export default function DashboardPage() {
 
 
         {/* Budget Allocation Label */}
-        <h3 className="text-slate-700 font-bold mb-3 px-1">Budget Allocation</h3>
+        <div className="flex justify-between items-end mb-3 px-1">
+          <h3 className="text-slate-700 font-bold">Budget Allocation</h3>
+          {isSmartMode && activeBracket && (
+            <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-md uppercase tracking-wider">
+              {activeBracket.name} Bracket
+            </span>
+          )}
+        </div>
 
         {/* Budget Allocations Grid */}
         <div className="grid grid-cols-2 gap-4 mb-6 animate-fade-in-up-delay-2">
-          {allocations.map(alloc => {
+          {(isSmartMode && activeBracket ? activeBracket.allocations : allocations).map(alloc => {
              const allocValue = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
              const allocPercent = numIncome > 0 ? Math.min((allocValue / numIncome) * 100, 100) : 0;
              
@@ -482,7 +568,7 @@ export default function DashboardPage() {
               
               <div className="flex flex-col gap-3 mb-6">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Allocations</h4>
-                {allocations.map(alloc => {
+                {(isSmartMode && activeBracket ? activeBracket.allocations : allocations).map(alloc => {
                   const val = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
                   return (
                     <div key={alloc.id} className="flex justify-between items-center text-sm">

@@ -15,6 +15,7 @@ interface PaydayLog {
   ipon_goal: number;
   custom_allocations?: Record<string, number>;
   user_id: string;
+  is_pending_sync?: boolean;
 }
 
 interface HistoryListProps {
@@ -60,6 +61,27 @@ export default function HistoryList({ initialLogs }: HistoryListProps) {
       setLoadingMore(false);
     }
   }, [logs, loadingMore, hasMore, supabase]);
+
+  useEffect(() => {
+    // Merge offline pending logs on initial load
+    try {
+      const queueRaw = localStorage.getItem("offline_sync_queue");
+      if (queueRaw) {
+        const queue = JSON.parse(queueRaw);
+        if (Array.isArray(queue) && queue.length > 0) {
+          setLogs(prev => {
+            const existingIds = new Set(prev.map(l => l.id));
+            const newOffline = queue.filter(q => !existingIds.has(q.id));
+            // Sort new offline logs so newest is at the top
+            newOffline.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            return [...newOffline, ...prev];
+          });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load offline queue:", e);
+    }
+  }, []);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -155,7 +177,14 @@ export default function HistoryList({ initialLogs }: HistoryListProps) {
                   </div>
                   <div className="flex justify-between items-start mb-2 gap-2">
                     <div className="flex flex-col items-start gap-1 mt-1 shrink min-w-0">
-                      <span className="px-2 py-1 bg-primary text-on-primary rounded text-[10px] font-bold tracking-wider whitespace-nowrap">{log.cutoff_type}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-1 bg-primary text-on-primary rounded text-[10px] font-bold tracking-wider whitespace-nowrap">{log.cutoff_type}</span>
+                        {log.is_pending_sync && (
+                          <span className="px-2 py-1 bg-amber-100 text-amber-800 rounded text-[10px] font-bold tracking-wider whitespace-nowrap border border-amber-200 animate-pulse flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[12px]">cloud_off</span> Pending Sync
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] uppercase font-semibold text-on-surface-variant/80 tracking-wider whitespace-nowrap overflow-hidden text-ellipsis w-full">
                         {formattedDate} <span className="opacity-50 mx-1">&bull;</span> {formattedTime}
                       </span>
