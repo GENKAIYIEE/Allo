@@ -23,6 +23,17 @@ export default function DashboardPage() {
     color: string;
   };
   const [allocations, setAllocations] = useState<Allocation[]>([]);
+  const [isSmartMode, setIsSmartMode] = useState(false);
+  
+  type SmartBracket = {
+    id: string;
+    name: string;
+    threshold: number;
+    allocations: Allocation[];
+  };
+  const [smartBrackets, setSmartBrackets] = useState<SmartBracket[]>([]);
+  const [activeBracket, setActiveBracket] = useState<SmartBracket | null>(null);
+  
   const [expenseValues, setExpenseValues] = useState<Record<string, string>>({});
   const [loggedCutoffs, setLoggedCutoffs] = useState<string[]>([]);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -55,6 +66,15 @@ export default function DashboardPage() {
         { id: "daily", name: "Daily Expenses", icon: "list_alt", pct: savedDaily ? parseInt(savedDaily, 10) : 40, color: "blue" },
         { id: "family", name: "Family Support", icon: "group", pct: savedFamily ? parseInt(savedFamily, 10) : 35, color: "orange" }
       ]);
+    }
+    
+    const savedSmartMode = localStorage.getItem("is_smart_mode_v1");
+    if (savedSmartMode === "true") {
+      setIsSmartMode(true);
+      const savedBrackets = localStorage.getItem("smart_allocation_config_v1");
+      if (savedBrackets) {
+        setSmartBrackets(JSON.parse(savedBrackets));
+      }
     }
 
     async function fetchLoggedCutoffs() {
@@ -136,7 +156,9 @@ export default function DashboardPage() {
 
   const numIncome = parseFloat(income.replace(/,/g, '')) || 0;
   
-  const totalExpenses = allocations.reduce((sum, alloc) => {
+  const activeAllocationsForCalc = isSmartMode && activeBracket ? activeBracket.allocations : allocations;
+  
+  const totalExpenses = activeAllocationsForCalc.reduce((sum, alloc) => {
     return sum + (parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0);
   }, 0);
   
@@ -146,15 +168,33 @@ export default function DashboardPage() {
   // The "System" Auto-Budget Logic
   useEffect(() => {
     if (numIncome > 0) {
+      let activeAllocs = allocations;
+      let matchedBracket = null;
+      
+      if (isSmartMode && smartBrackets.length > 0) {
+        // Find bracket
+        if (numIncome < 15000) matchedBracket = smartBrackets.find(b => b.id === 'low');
+        else if (numIncome <= 30000) matchedBracket = smartBrackets.find(b => b.id === 'mid');
+        else matchedBracket = smartBrackets.find(b => b.id === 'high');
+        
+        if (matchedBracket) {
+          activeAllocs = matchedBracket.allocations;
+          setActiveBracket(matchedBracket);
+        }
+      } else {
+        setActiveBracket(null);
+      }
+
       const newValues: Record<string, string> = {};
-      allocations.forEach(alloc => {
+      activeAllocs.forEach(alloc => {
         newValues[alloc.id] = formatCurrencyInput((numIncome * (alloc.pct / 100)).toFixed(0));
       });
       setExpenseValues(newValues);
     } else {
       setExpenseValues({});
+      setActiveBracket(null);
     }
-  }, [income, allocations]);
+  }, [income, allocations, isSmartMode, smartBrackets]);
 
   const handleReview = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
@@ -187,7 +227,8 @@ export default function DashboardPage() {
 
       // Prepare custom allocations payload
       const customAllocations: Record<string, number> = {};
-      allocations.forEach(alloc => {
+      const activeAllocsToSave = isSmartMode && activeBracket ? activeBracket.allocations : allocations;
+      activeAllocsToSave.forEach(alloc => {
         customAllocations[alloc.name] = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
       });
 
@@ -339,11 +380,18 @@ export default function DashboardPage() {
 
 
         {/* Budget Allocation Label */}
-        <h3 className="text-slate-700 font-bold mb-3 px-1">Budget Allocation</h3>
+        <div className="flex justify-between items-end mb-3 px-1">
+          <h3 className="text-slate-700 font-bold">Budget Allocation</h3>
+          {isSmartMode && activeBracket && (
+            <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-md uppercase tracking-wider">
+              {activeBracket.name} Bracket
+            </span>
+          )}
+        </div>
 
         {/* Budget Allocations Grid */}
         <div className="grid grid-cols-2 gap-4 mb-6 animate-fade-in-up-delay-2">
-          {allocations.map(alloc => {
+          {(isSmartMode && activeBracket ? activeBracket.allocations : allocations).map(alloc => {
              const allocValue = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
              const allocPercent = numIncome > 0 ? Math.min((allocValue / numIncome) * 100, 100) : 0;
              
@@ -520,7 +568,7 @@ export default function DashboardPage() {
               
               <div className="flex flex-col gap-3 mb-6">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Allocations</h4>
-                {allocations.map(alloc => {
+                {(isSmartMode && activeBracket ? activeBracket.allocations : allocations).map(alloc => {
                   const val = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
                   return (
                     <div key={alloc.id} className="flex justify-between items-center text-sm">

@@ -19,3 +19,9 @@ Do not wait for the user to remind you of these roles.
 Whenever making revisions or changes, you MUST guarantee that the code will work on the production site, not just locally.
 Always consider production environments (e.g. building, static generation, connection pooling, environment variables, caching) before finalizing changes.
 <!-- END:production-guarantee-rule -->
+
+<!-- BEGIN:user-communication-rule -->
+# Communication Style
+- Always address the user as "Boss".
+- Whenever a task is fully completed, you must conclude your message by stating exactly: "Boss, the task has been finish".
+<!-- END:user-communication-rule -->
