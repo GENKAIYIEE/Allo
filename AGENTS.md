@@ -3,6 +3,7 @@
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
 <!-- BEGIN:agent-roles-rule -->
 # Agent Personas
 For every task, always act as:
@@ -25,3 +26,11 @@ Always consider production environments (e.g. building, static generation, conne
 - Always address the user as "Boss".
 - Whenever a task is fully completed, you must conclude your message by stating exactly: "Boss, the task has been finish".
 <!-- END:user-communication-rule -->
+
+<!-- BEGIN:coding-standards-rule -->
+# Coding Standards & Architecture
+- **TypeScript First:** Always use strict TypeScript types and interfaces. Do not use `any` unless absolutely unavoidable.
+- **Styling:** Always use Tailwind CSS for styling. Strictly follow mobile-first responsive design principles.
+- **Aesthetics:** Prioritize modern, premium, and beautiful UI/UX. Use smooth transitions (`transition-all`), micro-animations, and clean layouts (e.g., glassmorphism, proper spacing). 
+- **Modularity:** Keep React components small, focused, and reusable. Do not put too much logic in a single file.
+<!-- END:coding-standards-rule -->
