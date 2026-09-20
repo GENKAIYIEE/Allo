@@ -65,8 +65,34 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex flex-col items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-md flex flex-col gap-10">
+    <div className="relative min-h-screen bg-[#F4F7FB] flex flex-col items-center justify-center p-6 font-sans overflow-hidden">
+      
+      {/* Background Shapes (SVG for perfect responsiveness) */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <svg viewBox="0 0 1440 1024" preserveAspectRatio="xMidYMid slice" className="absolute top-0 left-0 w-full h-full">
+          <defs>
+            <linearGradient id="gradTop" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#1C469B" />
+              <stop offset="100%" stopColor="#3A7DF1" />
+            </linearGradient>
+            <linearGradient id="gradBot" x1="100%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor="#1C469B" />
+              <stop offset="100%" stopColor="#3A7DF1" />
+            </linearGradient>
+          </defs>
+
+          {/* Top Left */}
+          <polygon points="0,0 1000,0 0,800" fill="#D4E5FA" opacity="0.6" />
+          <polygon points="0,0 750,0 0,600" fill="url(#gradTop)" opacity="0.9" />
+          <polygon points="0,0 500,0 0,400" fill="#001A4B" />
+
+          {/* Bottom Right */}
+          <polygon points="1440,1024 565,1024 1440,324" fill="url(#gradBot)" opacity="0.9" />
+          <polygon points="1440,1024 940,1024 1440,624" fill="#001A4B" />
+        </svg>
+      </div>
+
+      <div className="w-full max-w-md flex flex-col gap-10 z-10">
         <div className="flex flex-col items-center text-center gap-4 animate-fade-in-up">
           <div className="bg-primary p-3 rounded-2xl shadow-sm mb-2 transition-transform duration-500 hover:scale-105 hover:shadow-md cursor-default">
             <Image 
@@ -78,12 +104,12 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">Welcome back</h1>
-            <p className="text-slate-500 mt-2">Please enter your details to sign in.</p>
+            <h1 className="text-3xl font-semibold text-[#001A4B] tracking-tight drop-shadow-sm">Welcome back</h1>
+            <p className="text-slate-600 mt-2 font-medium">Please enter your details to sign in.</p>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-3xl shadow-[0_2px_20px_rgb(0,0,0,0.03)] border border-slate-100 animate-fade-in-up-delay-1">
+        <div className="bg-white/70 backdrop-blur-2xl p-8 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/50 animate-fade-in-up-delay-1">
           <form onSubmit={handleLogin} className="flex flex-col gap-5">
             <div className="flex flex-col gap-2 group">
               <label className="text-sm font-medium text-slate-700 transition-colors group-focus-within:text-primary">Email Address</label>
@@ -145,13 +171,19 @@ export default function LoginPage() {
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </form>
-        </div>
 
-        <div className="text-center text-sm text-slate-500 animate-fade-in-up-delay-2">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="font-semibold text-primary hover:text-primary/80 transition-colors">
-            Sign up
-          </Link>
+          <div className="mt-8 flex flex-col gap-4">
+            <div className="text-center text-sm text-slate-500 animate-fade-in-up-delay-2">
+              Don&apos;t have an account?{" "}
+              <Link href="/register" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+                Sign up
+              </Link>
+            </div>
+
+            <div className="text-center text-xs text-slate-400 animate-fade-in-up-delay-2">
+              By continuing, you agree to our <Link href="/terms" className="underline hover:text-slate-600 transition-colors">Terms of Service</Link> and <Link href="/privacy" className="underline hover:text-slate-600 transition-colors">Privacy Policy</Link>.
+            </div>
+          </div>
         </div>
       </div>
     </div>
