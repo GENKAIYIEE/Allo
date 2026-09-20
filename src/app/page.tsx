@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function SplashPage() {
   const router = useRouter();
@@ -80,6 +81,7 @@ export default function SplashPage() {
             src="/allo_logo_v4.png" 
             alt="Allo Logo" 
             fill
+            sizes="(max-width: 768px) 96px, 128px"
             className="animate-splash-logo rounded-2xl md:rounded-[32px] shadow-2xl object-cover"
             priority
           />
