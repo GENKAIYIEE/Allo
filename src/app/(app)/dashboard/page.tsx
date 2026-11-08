@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../../lib/supabase/client";
 import Link from "next/link";
-import Image from "next/image";
 import { Skeleton } from "../../../components/Skeleton";
+import { ReviewAllocationDialog } from "../../../components/ReviewAllocationDialog";
 import { formatInTimeZone } from "date-fns-tz";
 import { FINANCIAL_TIPS } from "../../../lib/constants/tips";
 
@@ -15,6 +15,11 @@ export default function DashboardPage() {
   const [cutoff, setCutoff] = useState<"15th" | "30th" | "Monthly">("15th");
   const [salaryCycle, setSalaryCycle] = useState<"bi-monthly" | "monthly">("bi-monthly");
   const [income, setIncome] = useState<string>("");
+  const [incomeSource, setIncomeSource] = useState<string>("Primary Role");
+  const [companyName, setCompanyName] = useState<string>("Personal");
+  const [hasMultipleWorkspaces, setHasMultipleWorkspaces] = useState<boolean>(false);
+  const [savedSources, setSavedSources] = useState<string[]>(["Primary Role"]);
+  const [savedCompanies, setSavedCompanies] = useState<string[]>(["Personal"]);
   type Allocation = {
     id: string;
     name: string;
@@ -44,6 +49,10 @@ export default function DashboardPage() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [dailyTip, setDailyTip] = useState("");
 
+  const closeReviewModal = useCallback(() => {
+    setShowReviewModal(false);
+  }, []);
+
   useEffect(() => {
     setDailyTip(FINANCIAL_TIPS[Math.floor(Math.random() * FINANCIAL_TIPS.length)]);
   }, []);
@@ -54,6 +63,36 @@ export default function DashboardPage() {
     setSalaryCycle(currentCycle);
     if (currentCycle === "monthly") {
       setCutoff("Monthly");
+    }
+
+    const savedSourcesLocal = localStorage.getItem("saved_income_sources_v1");
+    if (savedSourcesLocal) {
+      setSavedSources(JSON.parse(savedSourcesLocal));
+    }
+
+    const savedCompaniesLocal = localStorage.getItem("saved_companies_v1");
+    if (savedCompaniesLocal) {
+      setSavedCompanies(JSON.parse(savedCompaniesLocal));
+    }
+
+    const activeProfileRaw = localStorage.getItem("active_career_profile_v1");
+    if (!activeProfileRaw) {
+      // Force user to select a profile first
+      router.push("/career");
+      return;
+    }
+    const activeProfile = JSON.parse(activeProfileRaw);
+    setCompanyName(activeProfile.company);
+    setIncomeSource(activeProfile.role);
+
+    const savedProfilesRaw = localStorage.getItem("saved_career_profiles_v1");
+    if (savedProfilesRaw) {
+      try {
+        const parsed = JSON.parse(savedProfilesRaw);
+        setHasMultipleWorkspaces(Array.isArray(parsed) && parsed.length > 1);
+      } catch (e) {
+        console.error("Error reading saved_career_profiles_v1:", e);
+      }
     }
 
     const savedAllocations = localStorage.getItem("custom_allocations_v1");
@@ -243,6 +282,8 @@ export default function DashboardPage() {
         family_support: numFamily,
         ipon_goal: iponGoal,
         custom_allocations: customAllocations,
+        company_name: companyName,
+        income_source: incomeSource,
         created_at: new Date().toISOString()
       };
 
@@ -268,6 +309,20 @@ export default function DashboardPage() {
         setSuccessMsg("Successfully saved to history!");
       }
 
+      // Save new income source to memory
+      if (incomeSource && !savedSources.includes(incomeSource)) {
+        const newSources = [...savedSources, incomeSource];
+        setSavedSources(newSources);
+        localStorage.setItem("saved_income_sources_v1", JSON.stringify(newSources));
+      }
+      
+      // Save new company to memory
+      if (companyName && !savedCompanies.includes(companyName)) {
+        const newCompanies = [...savedCompanies, companyName];
+        setSavedCompanies(newCompanies);
+        localStorage.setItem("saved_companies_v1", JSON.stringify(newCompanies));
+      }
+
       setIncome("");
       setExpenseValues({});
       setShowReviewModal(false);
@@ -291,17 +346,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#F0F4F8] text-slate-800 pb-32 font-sans">
       {/* Header */}
-      <header className="w-full bg-[#001142] text-white pt-12 pb-6 px-6 rounded-b-3xl shadow-md z-40 relative animate-fade-in-up">
-        <div className="flex items-center justify-center">
-          <Image 
-            src="/allo_logo_v4.png"
-            alt="Allo Logo"
-            width={48}
-            height={48}
-            className="rounded-xl shadow-inner transition-transform duration-500 hover:scale-105"
-          />
-        </div>
-      </header>
+      <header className="w-full bg-[#001142] text-white pt-12 pb-6 px-6 rounded-b-3xl shadow-md z-40 relative animate-fade-in-up" />
 
       <main className="max-w-md mx-auto px-5 -mt-4 relative z-50">
         {/* Segmented Control */}
@@ -346,7 +391,28 @@ export default function DashboardPage() {
           </div>
         )}
 
-
+        {/* Active Workspace Text */}
+        <div className="flex items-center justify-between mb-2 px-2 animate-fade-in-up-delay-1">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[16px] text-slate-400">domain</span>
+            <div className="flex flex-col">
+              <p className="text-sm text-slate-500 leading-tight">
+                Working on: <span className="font-bold text-[#001142]">{companyName}</span>
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium tracking-wide">
+                {incomeSource}
+              </p>
+            </div>
+          </div>
+          {hasMultipleWorkspaces && (
+            <button 
+              onClick={() => router.push("/career")}
+              className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              Change <span className="material-symbols-outlined text-[14px]">edit</span>
+            </button>
+          )}
+        </div>
 
         {/* Current Payday Net Income Card */}
         <section className="bg-white p-5 rounded-2xl shadow-sm mb-6 flex flex-col items-center animate-fade-in-up-delay-2 group hover:shadow-md transition-shadow duration-300">
@@ -533,7 +599,7 @@ export default function DashboardPage() {
         {/* Submit Button */}
         <button
           disabled={loading || isOverBudget || numIncome <= 0 || isMonthCompleted}
-          onClick={() => setShowReviewModal(true)}
+          onClick={handleReview}
           className={`w-full py-4 rounded-2xl font-headline-sm font-bold shadow-lg transition-all transform active:scale-95 flex justify-center items-center gap-2 ${
             loading || isOverBudget || numIncome <= 0 || isMonthCompleted
               ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
@@ -550,70 +616,16 @@ export default function DashboardPage() {
 
       {/* Review Modal */}
       {showReviewModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-surface rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 border border-outline-variant/30">
-            <div className="bg-primary px-6 py-5 flex items-center gap-3">
-              <span className="material-symbols-outlined text-white text-3xl">receipt_long</span>
-              <div>
-                <h3 className="font-headline-md text-white font-bold">Review Summary</h3>
-                <p className="text-primary-fixed text-sm opacity-90">{cutoff} Payday Allocation</p>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <div className="flex justify-between items-end mb-4 border-b border-outline-variant/30 pb-4">
-                <span className="text-on-surface-variant font-label-caps uppercase tracking-wider text-xs">Total Net Income</span>
-                <span className="font-display-currency text-primary text-2xl font-bold">₱{numIncome.toLocaleString()}</span>
-              </div>
-              
-              <div className="flex flex-col gap-3 mb-6">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-1">Allocations</h4>
-                {(isSmartMode && activeBracket ? activeBracket.allocations : allocations).map(alloc => {
-                  const val = parseFloat(expenseValues[alloc.id]?.replace(/,/g, '')) || 0;
-                  return (
-                    <div key={alloc.id} className="flex justify-between items-center text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className={`material-symbols-outlined text-${alloc.color}-500 text-[16px]`} style={{ fontVariationSettings: "'FILL' 1" }}>{alloc.icon}</span>
-                        <span className="text-on-surface font-medium">{alloc.name}</span>
-                      </div>
-                      <span className="font-display-currency font-semibold text-error">₱{val.toLocaleString()}</span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="bg-secondary-container/30 rounded-xl p-4 border border-secondary/20 mb-6 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>savings</span>
-                  <span className="text-on-surface font-bold text-sm">Total Savings</span>
-                </div>
-                <span className="font-display-currency text-secondary text-xl font-bold">+₱{iponGoal.toLocaleString()}</span>
-              </div>
-              
-              <div className="flex gap-3 mt-2">
-                <button 
-                  onClick={() => setShowReviewModal(false)}
-                  disabled={loading}
-                  className="flex-1 py-3 bg-surface-variant text-on-surface-variant rounded-xl font-bold transition-colors hover:bg-outline-variant/30"
-                >
-                  Edit
-                </button>
-                <button 
-                  onClick={handleConfirmSave}
-                  disabled={loading}
-                  className="flex-[2] py-3 bg-primary text-on-primary rounded-xl font-bold transition-colors hover:bg-primary-container hover:text-on-primary-container shadow-sm flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <span className="material-symbols-outlined animate-spin text-[18px]">sync</span>
-                  ) : (
-                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  )}
-                  {loading ? "Saving..." : "Confirm & Save"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ReviewAllocationDialog
+          cutoff={cutoff}
+          income={numIncome}
+          allocations={isSmartMode && activeBracket ? activeBracket.allocations : allocations}
+          expenseValues={expenseValues}
+          savings={iponGoal}
+          isSaving={loading}
+          onClose={closeReviewModal}
+          onConfirm={handleConfirmSave}
+        />
       )}
     </div>
   );

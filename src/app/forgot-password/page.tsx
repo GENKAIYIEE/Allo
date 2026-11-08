@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../../lib/supabase/client";
 import Image from "next/image";
+import { validateEmailFormatAndDomain } from "../../lib/emailValidation";
 
 export default function ForgotPasswordPage() {
   const [step, setStep] = useState<"email" | "otp">("email");
@@ -12,21 +13,53 @@ export default function ForgotPasswordPage() {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [suggestedEmail, setSuggestedEmail] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+    setSuggestedEmail(null);
+
+    const emailCheck = validateEmailFormatAndDomain(email);
+    if (!emailCheck.valid) {
+      setErrorMsg(emailCheck.error || "Please enter a valid email address.");
+      if (emailCheck.suggestedEmail) {
+        setSuggestedEmail(emailCheck.suggestedEmail);
+      }
+      return;
+    }
+
+    setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const verifyResponse = await fetch("/api/auth/validate-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailCheck.normalizedEmail }),
+      });
+
+      const verifyData = (await verifyResponse.json().catch(() => ({}))) as {
+        valid?: boolean;
+        error?: string;
+        suggestedEmail?: string;
+      };
+
+      if (!verifyResponse.ok || !verifyData.valid) {
+        if (verifyData.suggestedEmail) {
+          setSuggestedEmail(verifyData.suggestedEmail);
+        }
+        throw new Error(verifyData.error || "Please enter a valid email address.");
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(emailCheck.normalizedEmail);
 
       if (error) throw error;
 
+      setEmail(emailCheck.normalizedEmail);
       setStep("otp");
       setSuccessMsg("We sent a recovery code to your email. Please check your inbox.");
     } catch (err: unknown) {
@@ -44,7 +77,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const { error } = await supabase.auth.verifyOtp({
-        email,
+        email: email.trim().toLowerCase(),
         token: otp,
         type: 'recovery'
       });
@@ -89,30 +122,47 @@ export default function ForgotPasswordPage() {
 
         <div className="bg-white p-8 rounded-3xl shadow-[0_2px_20px_rgb(0,0,0,0.03)] border border-slate-100 animate-fade-in-up-delay-1">
           {step === "email" ? (
-            <form onSubmit={handleSendEmail} className="flex flex-col gap-5">
+            <form onSubmit={handleSendEmail} noValidate className="flex flex-col gap-5">
               <div className="flex flex-col gap-2 group">
                 <label className="text-sm font-medium text-slate-700 transition-colors group-focus-within:text-primary">Email Address</label>
                 <input 
                   type="email" 
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (suggestedEmail) setSuggestedEmail(null);
+                  }}
                   required
+                  autoComplete="email"
                   className="w-full bg-slate-50 hover:bg-slate-100/50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all duration-300"
-                  placeholder="you@example.com"
+                  placeholder="you@gmail.com"
                 />
               </div>
 
               {errorMsg && (
-                <div className="p-4 bg-red-50 text-red-700 border border-red-100 rounded-xl text-sm font-medium animate-fade-in-up">
-                  {errorMsg}
+                <div className="p-4 bg-red-50 text-red-700 border border-red-100 rounded-xl text-sm font-medium animate-fade-in-up flex flex-col gap-2">
+                  <span>{errorMsg}</span>
+                  {suggestedEmail && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmail(suggestedEmail);
+                        setErrorMsg(null);
+                        setSuggestedEmail(null);
+                      }}
+                      className="self-start text-xs font-semibold text-primary bg-white px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors duration-150"
+                    >
+                      Use {suggestedEmail}
+                    </button>
+                  )}
                 </div>
               )}
 
               <button 
                 type="submit" 
-                disabled={loading || !email}
+                disabled={loading || !email.trim()}
                 className={`w-full py-3.5 mt-4 text-white font-medium rounded-xl transition-all duration-300 ease-out flex items-center justify-center gap-2 ${
-                  loading || !email
+                  loading || !email.trim()
                     ? 'bg-slate-300 cursor-not-allowed'
                     : 'bg-primary hover:bg-primary/95 hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgb(0,17,66,0.15)] active:scale-[0.98]'
                 }`}

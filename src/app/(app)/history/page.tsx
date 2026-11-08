@@ -12,6 +12,8 @@ interface PaydayLog {
   family_support: number;
   ipon_goal: number;
   custom_allocations?: Record<string, number>;
+  company_name?: string;
+  income_source?: string;
   user_id: string;
 }
 
@@ -34,23 +36,14 @@ export default async function HistoryPage() {
     );
   }
 
-  // Fetch true lifetime totals quickly (without fetching all full rows)
-  // We'll fetch just income and ipon_goal for all logs to aggregate them
+  // Fetch all logs needed for totals (including company and role for filtering)
   const { data: allLogsForTotals, error: totalsError } = await supabase
     .from("payday_logs")
-    .select("income, ipon_goal");
+    .select("income, ipon_goal, company_name, income_source");
 
   if (totalsError) {
     console.error("Error fetching totals:", totalsError);
   }
-
-  let lifetimeIncome = 0;
-  let lifetimeSavings = 0;
-  
-  allLogsForTotals?.forEach(log => {
-    lifetimeIncome += Number(log.income) || 0;
-    lifetimeSavings += Number(log.ipon_goal) || 0;
-  });
 
   // Fetch only the first 10 logs for the initial render
   const { data: logs, error } = await supabase
@@ -88,34 +81,13 @@ export default async function HistoryPage() {
   return (
     <div className="min-h-screen bg-background text-on-background pb-32">
       <header className="w-full top-0 sticky bg-surface border-b border-outline-variant z-40 animate-fade-in-up">
-        <div className="flex items-center justify-between px-container-padding h-16 gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-on-surface-variant hover:text-primary transition-colors flex items-center">
-              <span className="material-symbols-outlined">arrow_back</span>
-            </Link>
-            <h1 className="font-headline-md text-headline-md font-bold text-primary">History</h1>
-          </div>
+        <div className="flex items-center justify-between px-container-padding h-16">
+          <h1 className="font-headline-md text-headline-md font-bold text-primary">History</h1>
         </div>
       </header>
 
       <main className="max-w-md mx-auto px-container-padding pt-section-margin">
-        {/* Lifetime Totals */}
-        <section className="mb-section-margin bg-primary text-on-primary p-6 rounded-xl flex flex-col gap-4 shadow-sm border border-outline-variant animate-fade-in-up-delay-1">
-          <div>
-            <h2 className="font-label-caps text-label-caps uppercase opacity-80">Lifetime Income</h2>
-            <div className="font-display-currency-mobile text-display-currency-mobile">
-              ₱{lifetimeIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-          </div>
-          <div>
-            <h2 className="font-label-caps text-label-caps uppercase opacity-80">Lifetime Savings</h2>
-            <div className="font-display-currency-mobile text-display-currency-mobile text-secondary-fixed">
-              ₱{lifetimeSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-          </div>
-        </section>
-
-        <HistoryList initialLogs={logs} />
+        <HistoryList initialLogs={logs} allLogsForTotals={allLogsForTotals || []} />
       </main>
     </div>
   );

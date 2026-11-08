@@ -37,6 +37,7 @@ export async function middleware(request: NextRequest) {
 
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') || 
                            request.nextUrl.pathname.startsWith('/history') ||
+                           request.nextUrl.pathname.startsWith('/career') ||
                            request.nextUrl.pathname.startsWith('/insights') ||
                            request.nextUrl.pathname.startsWith('/settings')
 
@@ -69,6 +70,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * Feel free to modify this pattern to include more paths.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest\\.json|sw\\.js|workbox-.*\\.js|fallback-.*\\.js|\\.well-known/.*|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

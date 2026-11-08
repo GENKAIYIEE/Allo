@@ -4,8 +4,9 @@ import { createClient } from '../../../../lib/supabase/server'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  // if "next" is in param, use it as the redirect URL
-  const next = searchParams.get('next') ?? '/'
+  const rawNext = searchParams.get('next') ?? '/dashboard'
+  // Only allow safe internal relative paths to prevent open redirect attacks
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard'
 
   if (code) {
     const supabase = await createClient()
@@ -17,6 +18,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // return the user to an error page with some instructions
   return NextResponse.redirect(`${origin}/login?error=invalid_auth_code`)
 }

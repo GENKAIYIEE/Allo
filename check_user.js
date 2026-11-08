@@ -10,11 +10,10 @@ async function checkUser() {
     console.table(authUsers);
 
     try {
-      const publicUsers = await sql`SELECT * FROM public.users`;
-      console.log("\nUsers in public.users:");
-      console.table(publicUsers);
+      const logs = await sql`SELECT id, income, daily_expenses, family_support, custom_allocations, ipon_goal FROM public.payday_logs WHERE id = 'cdd36337-2b25-434c-b46a-abefa7b7a8ad'`;
+      console.log("\nSpecific log:", JSON.stringify(logs, null, 2));
     } catch(e) {
-      console.log("Table public.users does not exist or cannot be accessed.");
+      console.log("Error querying logs:", e);
     }
     
   } catch (error) {
