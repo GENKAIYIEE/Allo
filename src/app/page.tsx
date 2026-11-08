@@ -20,7 +20,7 @@ export default function SplashPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       const elapsed = Date.now() - startTime;
-      const minDisplayTime = 2700; // 2700ms minimum splash to let the user read the tagline
+      const minDisplayTime = 1600; // 1600ms minimum splash to let the user read the tagline
       const delay = Math.max(0, minDisplayTime - elapsed);
       
       setTimeout(() => {
@@ -82,11 +82,11 @@ export default function SplashPage() {
             alt="Allo Logo" 
             fill
             sizes="(max-width: 768px) 96px, 128px"
-            className="animate-splash-logo rounded-2xl md:rounded-[32px] shadow-2xl object-cover"
+            className="rounded-2xl md:rounded-3xl shadow-sm object-cover"
             priority
           />
         </div>
-        <h1 className="animate-splash-text text-4xl md:text-5xl font-extrabold text-[#001A4B] tracking-[0.3em] ml-[0.3em] mb-2 uppercase">Allo</h1>
+
         <p className="animate-splash-text text-slate-500 text-sm md:text-base font-medium tracking-wide text-center max-w-xs md:max-w-md">Where every peso finds its purpose.</p>
       </div>
     </div>

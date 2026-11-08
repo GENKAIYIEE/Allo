@@ -5,42 +5,84 @@ import { createClient } from "../../../lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { validateEmailFormatAndDomain } from "../../lib/emailValidation";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [suggestedEmail, setSuggestedEmail] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("registered") === "true") {
-        setSuccessMsg("Registration successful! Please log in.");
-        // Optional: remove query param from URL cleanly
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
+    const params = new URLSearchParams(window.location.search);
+    const isRegistered = params.get("registered") === "true";
+    const authError = params.get("error");
+
+    if (isRegistered || authError) {
+      queueMicrotask(() => {
+        if (isRegistered) {
+          setSuccessMsg("Registration successful! Please log in.");
+        }
+        if (authError === "invalid_auth_code") {
+          setErrorMsg("Your authentication link is invalid or has expired. Please sign in or request a new link.");
+        }
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setSuccessMsg(null);
+    setSuggestedEmail(null);
 
-    if (!email || !password) {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
       setErrorMsg("Please enter both email and password.");
+      return;
+    }
+
+    const emailCheck = validateEmailFormatAndDomain(trimmedEmail);
+    if (!emailCheck.valid) {
+      setErrorMsg(emailCheck.error || "Please enter a valid email address.");
+      if (emailCheck.suggestedEmail) {
+        setSuggestedEmail(emailCheck.suggestedEmail);
+      }
       return;
     }
 
     setLoading(true);
 
     try {
+      // Server-side email & DNS MX record validation
+      const verifyResponse = await fetch("/api/auth/validate-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: emailCheck.normalizedEmail }),
+      });
+
+      const verifyData = (await verifyResponse.json().catch(() => ({}))) as {
+        valid?: boolean;
+        error?: string;
+        suggestedEmail?: string;
+      };
+
+      if (!verifyResponse.ok || !verifyData.valid) {
+        if (verifyData.suggestedEmail) {
+          setSuggestedEmail(verifyData.suggestedEmail);
+        }
+        throw new Error(verifyData.error || "Please enter a valid email address.");
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: emailCheck.normalizedEmail,
         password,
       });
 
@@ -65,7 +107,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#F4F7FB] flex flex-col items-center justify-center p-6 font-sans overflow-hidden">
+    <div className="relative h-dvh bg-[#F4F7FB] flex flex-col items-center justify-center p-6 font-sans overflow-hidden">
       
       {/* Background Shapes (SVG for perfect responsiveness) */}
       <div className="absolute inset-0 z-0 pointer-events-none">
@@ -110,13 +152,17 @@ export default function LoginPage() {
         </div>
 
         <div className="bg-white/70 backdrop-blur-2xl p-8 rounded-3xl shadow-[0_8px_32px_rgba(0,0,0,0.05)] border border-white/50 animate-fade-in-up-delay-1">
-          <form onSubmit={handleLogin} className="flex flex-col gap-5">
+          <form onSubmit={handleLogin} noValidate className="flex flex-col gap-5">
             <div className="flex flex-col gap-2 group">
               <label className="text-sm font-medium text-slate-700 transition-colors group-focus-within:text-primary">Email Address</label>
               <input 
                 type="email" 
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (suggestedEmail) setSuggestedEmail(null);
+                }}
+                autoComplete="email"
                 className="w-full bg-slate-50 hover:bg-slate-100/50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all duration-300"
               />
             </div>
@@ -133,6 +179,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                   className="w-full bg-slate-50 hover:bg-slate-100/50 border border-slate-200 hover:border-slate-300 rounded-xl pl-4 pr-12 py-3 text-slate-900 focus:outline-none focus:bg-white focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all duration-300"
                 />
                 <button
@@ -154,8 +201,21 @@ export default function LoginPage() {
             )}
 
             {errorMsg && (
-              <div className="p-4 bg-red-50 text-red-700 border border-red-100 rounded-xl text-sm font-medium animate-fade-in-up">
-                {errorMsg}
+              <div className="p-4 bg-red-50 text-red-700 border border-red-100 rounded-xl text-sm font-medium animate-fade-in-up flex flex-col gap-2">
+                <span>{errorMsg}</span>
+                {suggestedEmail && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail(suggestedEmail);
+                      setErrorMsg(null);
+                      setSuggestedEmail(null);
+                    }}
+                    className="self-start text-xs font-semibold text-primary bg-white px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors duration-150"
+                  >
+                    Use {suggestedEmail}
+                  </button>
+                )}
               </div>
             )}
 

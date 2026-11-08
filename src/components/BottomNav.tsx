@@ -8,6 +8,7 @@ export default function BottomNav() {
 
   const isDashboard = pathname === "/dashboard";
   const isHistory = pathname === "/history";
+  const isCareer = pathname === "/career";
   const isSettings = pathname === "/settings";
 
   return (
@@ -35,9 +36,17 @@ export default function BottomNav() {
         <span className="material-symbols-outlined" style={{ fontVariationSettings: isHistory ? "'FILL' 1" : "'FILL' 0" }}>history</span>
         <span className="font-label-caps text-label-caps mt-1">History</span>
       </Link>
-
-
-
+      <Link 
+        href="/career" 
+        className={`flex flex-col items-center justify-center px-4 py-1 rounded-lg transition-all duration-200 ${
+          isCareer 
+            ? "text-[#001142]" 
+            : "text-slate-400 hover:text-slate-600"
+        }`}
+      >
+        <span className="material-symbols-outlined" style={{ fontVariationSettings: isCareer ? "'FILL' 1" : "'FILL' 0" }}>work</span>
+        <span className="font-label-caps text-label-caps mt-1">Career</span>
+      </Link>
       <Link 
         href="/settings" 
         className={`flex flex-col items-center justify-center px-4 py-1 rounded-lg transition-all duration-200 ${
