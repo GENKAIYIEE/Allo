@@ -76,7 +76,7 @@ export default function SplashPage() {
       
       {/* Main Content */}
       <div className="z-10 flex flex-col items-center">
-        <div className="relative w-24 h-24 md:w-32 md:h-32 mb-6">
+        <div className="relative w-24 h-24 md:w-32 md:h-32">
           <Image 
             src="/allo_logo_v4.png" 
             alt="Allo Logo" 
@@ -86,8 +86,6 @@ export default function SplashPage() {
             priority
           />
         </div>
-
-        <p className="animate-splash-text text-slate-500 text-sm md:text-base font-medium tracking-wide text-center max-w-xs md:max-w-md">Where every peso finds its purpose.</p>
       </div>
     </div>
   );
